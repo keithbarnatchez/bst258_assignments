@@ -1,0 +1,8 @@
+# directories to ignore
+/.quarto/
+/*_cache/
+
+# file types to ignore
+*.pdf
+*.html
+
