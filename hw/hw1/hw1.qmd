@@ -1,0 +1,379 @@
+---
+title: "Problem Set #1"
+subtitle: "BST 258: Causal Inference -- Theory and Practice"
+author: "Keith Barnatchez"
+date: ""
+format:
+  pdf:
+    documentclass: scrartcl
+    papersize: letter
+    fontsize: 11pt
+    geometry:
+      - margin=1in
+      - heightrounded
+    number-sections: false
+    colorlinks: true
+    link-citations: true
+    callout-appearance: simple
+    callout-icon: false
+    # figure options
+    fig-width: 6
+    fig-asp: 0.618
+    fig-cap-location: bottom
+    # code block options
+    code-line-numbers: false
+    code-block-bg: false
+    highlight-style: nord
+---
+
+```{r, echo=FALSE}
+library(tidyverse)
+```
+
+## Question 1
+
+Done. Thanks for the template!
+
+## Question 2
+
+Here, we'll consider a completely randomized experiment with $i=1,\dots,n$ units, $m$ of which are treated. We set $A_i=1$ when unit $i$ is treated.
+
+### Part (a)
+
+We aim to find the marginal distributin of $A$.
+
+::: {.callout-warning title="Solution"}
+Without conditioning on any other subject's treatment status, the a randombly sampled subject has an $m/n$ probability of being treated. Specifically,
+\begin{align*}
+P(A=1) = \frac{m}{n}
+\end{align*}
+:::
+
+### Part (b)
+
+Here, we aim to find the joint distribution of $A_i$ and $A_j$, where $i \neq j$. 
+
+::: {.callout-warning title="Solution"}
+Notice
+\begin{align*}
+P(A_i=1,A_j=1) &= P(A_j=1|A_i=1)P(A_i=1) = \frac{m-1}{n-1}\frac{m}{n} \\
+P(A_i=1,A_j=0) &= P(A_j=0|A_i=1)P(A_i=1) = \frac{n-m}{n-1}\frac{m}{n} \\
+P(A_i=0,A_j=1) &= P(A_j=1|A_i=0)P(A_i=0) = \frac{m}{n-1}\frac{n-m}{n} \\
+P(A_i=0,A_j=0) &= P(A_j=0|A_i=0)P(A_i=0) = \frac{n-m-1}{n-1}\frac{n-m}{n}
+\end{align*}
+:::
+
+### Part (c)
+
+We'll first find $\text{Var}(A_i)$.
+
+::: {.callout-warning title="Solution"}
+$$
+\begin{aligned}
+\text{Var}(A_i) &= \mathbb{E}(A_i^2) - \mathbb{E}(A_i)^2 \\
+&= \mathbb{E}(A_i) - \mathbb{E}(A_i)^2 \\
+&= \frac{m}{n} - \left(\frac{m}{n}\right)^2 \\
+&= \frac{m}{n}\left(1 - \frac{m}{n}\right)
+\end{aligned}
+$$
+:::
+
+Next, we'll find $\text{Cov}(A_i,A_j)$.
+
+::: {.callout-warning title=""}
+$$
+\begin{aligned}
+\text{Cov}(A_i,A_j) &= \mathbb{E}[A_i A_j] - \mathbb{E}[A_i]\mathbb{E}[A_j] \\
+&= \mathbb{E}_{A_j} \mathbb{E}(A_i A_j | A_j) - \left(\frac{m}{n}\right)^2 \\
+&= \mathbb{E}(A_i A_j | A_j = 1)\mathbb{P}(A_j=1) + \mathbb{E}(A_i A_j | A_j = 0)\mathbb{P}(A_j=0)  - \left(\frac{m}{n}\right)^2 \\
+&= \mathbb{E}(A_i | A_j = 1)\mathbb{P}(A_j=1)  - \left(\frac{m}{n}\right)^2  \\
+&= \frac{m-1}{n-1}\frac{m}{n} - \left(\frac{m}{n}\right)^2 \\
+&= \frac{m}{n}\left(\frac{m-1}{n-1} - \frac{m}{n}\right)
+\end{aligned}
+$$
+:::
+The covariance expression is intuitive. If we keep $m/n$ fixed as $n$ increases (and our finite population approaches a superpopulation), notice the covariance tends to 0.
+
+## Quesion 3
+
+We'll first show $\mathbb{V}(Y_i(1)) = \mathbb{V}(Y_i(0))$.
+
+::: {.callout-warning title="Solution"}
+\begin{align*}
+\mathbb{V}(Y_i(1)) &= \mathbb{V}(Y_i(0) + \theta) \\
+&= \mathbb{V}(Y_i(0)) + \mathbb{V}(\theta) \\
+&= \mathbb{V}(Y_i(0))
+\end{align*}
+where the last 2 lines hold because $\theta$ is a constant.
+:::
+
+Next, we'll show $\rho(Y_i(1),Y_i(0)) = 1$.
+
+::: {.callout-warning title="Solution"}
+First, notice by the bilinearity of covariances,
+\begin{align*}
+\text{Cov}(Y_i(1),Y_i(0)) &= \text{Cov}(Y_i(0) + \theta,Y_i(0)) \\
+&= \text{Cov}(Y_i(0),Y_i(0)) \\
+&= \mathbb{V}(Y_i(0)) = \mathbb{V}(Y_i(1))
+\end{align*}
+Finally, we have
+\begin{align*}
+\rho(Y_i(1),Y_i(0)) &= \frac{\text{Cov}(Y_i(1),Y_i(0))}{\sqrt{\mathbb{V}(Y_i(1))\mathbb{V}(Y_i(0))}} \\
+&= \frac{\mathbb{V}(Y_i(0))}{\sqrt{\mathbb{V}(Y_i(0))\mathbb{V}(Y_i(0))}} \\
+&= 1
+\end{align*}
+:::
+
+## Question 4
+
+Throughout, I assume that we pre-register our guesses all at once -- the contents of a cup aren't revealed one at a time. Under this assumption, notice there is no optimal strategy since the cups are randomly placed on the table. Because of this, we can equivalently frame this problem in terms of an "urn design." Instead of drawing balls out of an urn, we're drawing cups full of tea.
+
+
+::: {.callout-warning title="Solution"}
+Specifically, suppose there are $N=8$ total cups of tea in an urn. $n=4$ of these cups are filled with tea first, and then milk. The remaining $N-n=4$ cups are filled with milk first, and then tea. We'll draw $m=4$ cups from the urn. Selecting a cup with tea first is a "success." Under this framing, note that the distribution of the number of successes is given by a hypergeometric distribution. Let $K$ be the number of successes, or cups with tea first we identify correctly. Then, 
+
+$$
+P(K=k) = \frac{{n \choose k}{N-n \choose m-k}}{{N \choose m}}
+$$
+Plugging in, we have
+
+$$
+\begin{aligned}
+P(K=0) = \frac{1}{70}, \  & P(K=1) = \frac{4}{35} & P(K=2) =\frac{6}{35}, \ & P(K=3) = \frac{4}{35}, &P (K=4) = \frac{1}{70} 
+\end{aligned}
+$$
+:::
+
+## Question 5
+
+### Part a
+
+::: {.callout-warning title=""}
+The main factor contributing to this result is that small stones appear to be easier to treat (notice the higher relative success rate when stratifying by either treatment), and that of the patients asigned to Treatment B, 270/350 had small stones compared to just 87/350 for Treatment A. Thus, even though Treatment A had a higher empirical success rate for treating either type of stone, since many more "hard to treat" patients were assigned to Treatment A,  its overall empirical efficacy was lower.
+:::
+### Part b
+::: {.callout-warning title=""}
+For tractability, we'll assume that participants report their sex at birth (male or female) so that we have four total strata. Consider the following table, which is admittedly contrived but satisfies the constraint: 
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lccc} 
+\toprule
+Stone & Gender & Treatment A & Treatment B \\
+\midrule
+Small & Female & 80/81 (98.7\%) & 1/1 (100\%) \\
+Small & Male & 1/6 (16.7\%) & 233/269 (87/3\%) \\
+Large & Female & 191/192 (99.5\%) & 1/1 (100\%) \\
+Large & Male & 1/71 (1.4\%) & 54/79 (68.4\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+This table is consistent with the original data, and depicts a (contrived) scenario where 1) treatment A is relatively ineffective at treating males, 2) treatment B is only assigned to 1 female with small stones and 1 female with large stones, treating both successfully, with the remaining treatment B slots being assigned to males.
+:::
+### Part c
+
+::: {.callout-warning title=""}
+This is typically referred to as Simpson's Paradox.
+:::
+## Question 6
+
+I include my code below. I implement a few helper functions for carrying out the simulation:
+- `sim_data` simulates data according the the data-generating process outlined in the assignment
+- `test_sharp_null` tests the Fisher sharp null for a fixed dataset
+- `sim_iter` carries out a single iteration of the simulation
+- `sim_main` carries out the actual simulation exercise
+
+```{r}
+sim_data <- function(n,mu1,mu0,v1,v0,p) {
+  #' Function for simulating potential outcomes and treatment assignment
+  #'
+  #' INPUTS:
+  #' - n: "Per group" sample size
+  #' - mu1 and mu0: Pot. outcome means under tmt and no tmt
+  #' - v1 and v0: Pot. outcome variances under tmt and no tmt
+  #' - p: Probability of treatment
+  #' 
+  #' OUTPUTS:
+  #' - A dataframe with columns Y1, Y0, A, and Y
+  #'
+  
+  # Simulate potential outcomes
+  Y1 <- rnorm(2*n,mean=mu1,sd=sqrt(v1))
+  Y0 <- rnorm(2*n,mean=mu0,sd=sqrt(v0))
+  
+  # Simulate treatment assignment
+  A <- rbinom(2*n,1,p)
+  
+  # Hide potential outcomes depending on tmt status
+  df <- data.frame(Y1,Y0,A)
+  df <- df %>% mutate(Y = ifelse(A==1,Y1,Y0))
+  
+  return(df)
+}
+
+test_sharp_null <- function(df, B=1e3,
+                            alpha=0.05) {
+  #' Function for testing the sharp null hypothesis of no treatment effect
+  #'
+  #' INPUTS:
+  #' - df: Dataframe from sim_data()
+  #' - B: Number of replications
+  #'
+  #' OUTPUTS:
+  #' 
+  #'
+
+  # Calculate test statistic (absolute difference in means) 
+  test_stat <- df %>% group_by(A) %>% summarize(MeanY=mean(Y)) %>%
+    summarize(abs_diff = abs(diff(MeanY))) %>%
+    pull(abs_diff)
+  
+  # Create nrep total "permuted" datasets where the treatment assignments are shuffled
+  permuted_dfs <- lapply(1:B, function(i) {
+    df %>% mutate(A = sample(A))
+  })
+  
+  # Compute the test statistic (abs difference in means) for each permuted dataset
+  test_stats <- lapply(permuted_dfs, function(df) {
+    df %>% group_by(A) %>% summarize(MeanY=mean(Y)) %>%
+      summarize(abs_diff = abs(diff(MeanY))) %>%
+      pull(abs_diff)
+  })
+  
+  # Get p-value (empirical prob of observing a test statistic as or more extreme 
+  # as the observed one)
+  pval <- mean(test_stats >= test_stat)
+  
+  # Return 1 if reject, 0 otherwise
+  return(ifelse(pval < alpha, 1, 0))
+  
+}
+
+sim_iter <- function(n,
+                     mu1,mu0,v1,v0,p,
+                     B,
+                     alpha=0.05) {
+  #' Function for performing single iteration of 
+  #'
+  #' INPUTS:
+  #' - n: "Per group" sample size
+  #' - mu1 and mu0: Pot. outcome means under tmt and no tmt
+  #' - v1 and v0: Pot. outcome variances under tmt and no tmt
+  #' - p: Probability of treatment
+  #' - B: Number of simulation iterations
+  #'
+  #' OUTPUTS:
+  #' - A dataframe with columns n, nsim, B, and pval
+  #'
+  
+  # Simulate data
+  df <- sim_data(n,mu1=1,mu0=0,v1=1,v0=1,p=0.5)
+  
+  # Test the sharp null
+  sharp_rej <- test_sharp_null(df,nrep=B,alpha)
+  
+  # Test the weak null (can just do a t test): extract p-value
+  weak_rej <- ifelse(t.test(df$Y ~ df$A)$p.value < alpha, 1, 0)
+  
+  # Store results
+  results <- data.frame(sharp_rej,weak_rej,n)
+  
+  return(results)
+}
+
+sim_main <- function(n_grid,
+                     mu1,mu0,v1,v0,p,
+                     B=100,
+                     alpha=0.05,
+                     nsim=100) {
+  #' Function for performing simulation
+  #'
+  #' INPUTS:
+  #' - n: "Per group" sample size
+  #' - mu1 and mu0: Pot. outcome means under tmt and no tmt
+  #' - v1 and v0: Pot. outcome variances under tmt and no tmt
+  #' - p: Probability of treatment
+  #' - B: Number of simulation iterations
+  #'
+  #' OUTPUTS:
+  #' - A dataframe with columns n, nsim, B, and pval
+  #'
+  
+ # Call the sim_iter function nsim times, for each value on the n_grid
+  results <- lapply(n_grid, function(n) {
+    sim_iter(n,mu1,mu0,v1,v0,p,B,alpha)
+  })
+  
+  # Combine results into a single dataframe
+  results <- do.call(rbind,results)
+  
+  return(results)
+
+}
+```
+
+Finally, I implement the simulation:
+
+```{r}
+# Fix parameter values
+nsim <- 1e3 ; B <- 1e4
+mu1 <- 1/10 ; mu0 <- 0 ; v1 <- 1/16 ; v0 <- 1/16 ; p <- 0.5
+
+# Set up grid of sample sizes 
+n_grid <- c(10,25,50,100,250)
+
+# df <- sim_data(n,mu1,mu0,v1,v0,p)
+results_df <- sim_main(n_grid=seq(10,100,10),
+                       mu1=mu1,mu0=mu0,v1=v1,v0=v0,p=p,
+                       B=B,nsim=nsim)
+
+```
+
+And I plot the results below
+
+## Question 7
+
+
+### Part a
+
+Let 
+$$
+\ell(\alpha,\beta) = \frac{1}{2n}\sum_{i=1}^n (Y_i - \alpha - \beta A_i)^2
+$$
+Since the loss function is convex, we can find the minimizer by setting the first-order conditions to zero (without needing to check the second-order conditions). That is, we want to solve
+$$
+\begin{aligned}
+\frac{\partial \ell(\alpha,\beta)}{\partial \beta} &= 0 \iff  \frac{1}{n}\sum_{i=1}^n A_i(Y_i - \alpha - \beta A_i) = 0 \\
+\frac{\partial \ell(\alpha,\beta)}{\partial \alpha} &= 0 \iff  \frac{1}{n}\sum_{i=1}^n (Y_i - \alpha - \beta A_i) = 0
+\end{aligned}
+$$
+First, notice the first-order condition for $\beta$ implies
+$$
+\begin{aligned}
+ \hat \beta &= \frac{P_n (AY)}{P_n(A)} - \hat \alpha
+\end{aligned}
+$$
+where $P_n$ is the sample mean operator. To obtain $\hat \alpha$, first notice the two first-order conditions imply
+$$
+\begin{aligned}
+&\frac{1}{n}\sum_{i=1}^n (Y_i - \alpha - \beta A_i) - \frac{1}{n}\sum_{i=1}^n A_i(Y_i - \alpha - \beta A_i) = 0 \\
+&\iff \frac{1}{n}\sum_{i=1}^n (1-A_i)(Y_i - \alpha - \beta A_i) = 0 \\
+& \iff P_n((1-A)Y) - \hat \alpha P_n(1-A) - \hat \beta \underbrace{P_n(A(1-A))}_{=0} = 0 \\ 
+& \iff \hat \alpha = \frac{P_n((1-A)Y)}{P_n(1-A)}
+\end{aligned}
+$$
+Above, I use the fact that $P_n(A(1-A)) = 0$ when $A$ is binary. Thus, we have
+
+$$
+\begin{aligned}
+\hat \beta &= \frac{P_n (AY)}{P_n(A)} - \frac{P_n((1-A)Y)}{P_n(1-A)}
+\end{aligned}
+$$
+Notice that the OLS estimator of $\beta$ amounts to the difference in means estimator of the ATE.
+
+### Part b
+
+Yes! As we argued in part (a), in this context $\hat \beta$ reduces to the difference in means estimator, which we argued in class is a valid (in the sense of being unbiased and asymptotically normal) estimator of the ATE.
+
+
