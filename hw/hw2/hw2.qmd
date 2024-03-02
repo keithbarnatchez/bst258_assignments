@@ -1,0 +1,90 @@
+---
+title: "Problem Set #2"
+subtitle: "BST 258: Causal Inference -- Theory and Practice"
+author: "Keith Barnatchez"
+date: ""
+format:
+  pdf:
+    documentclass: scrartcl
+    papersize: letter
+    fontsize: 11pt
+    geometry:
+      - margin=1in
+      - heightrounded
+    number-sections: false
+    colorlinks: true
+    link-citations: true
+    callout-appearance: simple
+    callout-icon: false
+    # figure options
+    fig-width: 6
+    fig-asp: 0.618
+    fig-cap-location: bottom
+    # code block options
+    code-line-numbers: false
+    code-block-bg: false
+    highlight-style: nord
+---
+
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\PP}{\mathbb{P}}
+
+```{r, echo=FALSE, include=FALSE}
+library(tidyverse)
+library(foreach)
+library(doParallel)
+```
+
+**Link to the repo for this HW**: `https://github.com/keithbarnatchez/bst258_assignments`
+
+# Question 1: Inverse Probability Weighting
+
+## Part 1: Theory
+
+1. 
+
+- Property (1) holds under correct specification of the propensity score model. 
+- Under positivity and 
+
+2. Assume consistency, positivity, and conditional exchangeability. Then, notice
+
+::: {.callout-warning title=""}
+$$
+\begin{aligned}
+\E[Y^a] &= \E[\E(Y^a | L) ] \\
+&= \E\left[ \frac{\mathbb{P}(A=a|L)}{\mathbb{P}(A=a|L)} \E(Y^a | L) \right] \\
+&=\E\left[ \frac{\E(Y^a | L)\mathbb{E}[I(A=a|L)]}{\mathbb{P}(A=a|L)}  \right] \\
+&=\E\left[ \frac{\E(Y I(A=a)| L)}{\mathbb{P}(A=a|L)}  \right] \\
+&= \E\left[ \E\left(\frac{Y I(A=a)}{\mathbb{P}(A=a|L)}\bigg| L\right)  \right] \\
+&=  \E\left(\frac{Y I(A=a)}{\mathbb{P}(A=a|L)}\right) 
+\end{aligned}
+$$
+:::
+
+
+\clearpage
+
+# Question 2: Standardization and Parametric G-Compuation
+
+## Part 1: Theory
+
+1. 
+
+$$
+\begin{aligned}
+\E[Y | C=]
+\end{aligned}
+$$
+
+2. Notice
+
+$$
+\begin{aligned}
+\E(Y^a) &= \E\left(\E(Y^a | L)\right) \\
+&= \E\left(\E(Y^a | A=a,C=0, L)\right) \\
+&= \E\left(\E(Y | A=a, C=0, L)\right) \\
+&= \sum_l \E(Y | A=a, C=0, L=l) \times \PP(L=l) \\
+\end{aligned}
+$$
+
+The first line just applies iterated expectations. The second line uses conditional exchangeability (for both $A$ and $C$), while the third line holds under consistency. The fourth line just expands the iterated expectation.
