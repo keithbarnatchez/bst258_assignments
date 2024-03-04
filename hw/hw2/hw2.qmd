@@ -43,12 +43,14 @@ library(doParallel)
 
 1.  If the  conditional expectation/propensity score models are correctly specified, then...
 
-- Property (1) by construction, as IPW weights are balancing weights. Notice this does *not* imply the IPW estimator is unbiased, as this requires conditional exchangeability.
+- Property (1) by holds construction, as IPW weights are balancing weights. Notice this does *not* imply the IPW estimator is unbiased, as this requires conditional exchangeability.
+
 - Under **positivity**, property (2) holds. We'll rigorously show this in Part 2 of this assignment, so I defer the explanation until then.
 
 If we additionally assume conditional exchangeability, then...
 
 - The IPW estimator is unbiased for the counterfactual mean $\E(Y^a)$.
+
 - Meaning the mean in the psuedo-population equals the standardized mean in the original population, which equals $\E(Y^a)$.
 
 2. Assume consistency, positivity, and conditional exchangeability. Then, notice
@@ -66,13 +68,15 @@ $$
 $$
 :::
 
+The first line just applies iterated expectation. The second line holds since we just multiply and divide by a fixed quantity in the inner expectation. The third and fourth lines hold by conditional exchangeability and consitency, while the fifth is just re-arranging and the sixth by (reverse) iterated expectation.
+
 \clearpage
 
 ## Part 2: Application
 
 First, I load in and clean the data
 
-```{r}
+```{r, warning=FALSE, message=FALSE}
 # Data cleaning
 nhefs <- read.csv('../data/nhefs.csv')
 
@@ -94,11 +98,16 @@ analysis_data <- nhefs %>%
   filter(!is.na(wt82_71))
 ```
 
-Next, I estimate the propensity score model and construct the stabilized + unstabilized weights. Note that I assume by stabilized weights, which has so far not been defined in the course nor defined in the problem set, we mean the weights corresponding to the Hajek estimator:
+Next, I estimate the propensity score model and construct the stabilized + unstabilized weights. Note that I assume by stabilized weights, which has so far not been defined in the course nor defined in the problem set, we mean the weights corresponding to the Hajék estimator:
+
 $$
-\hat \psi_a^\text{Hajek} = \left(\frac{1}{n} \sum_{i=1}^n \frac{Y_i A_i}{\hat g(L_i)}\right) \bigg/ \left(\frac{1}{n} \sum_{i=1}^n \frac{A_i}{\hat g(L_i)}\right)
+\hat \psi_a^\text{Hajék} = \left(\frac{1}{n} \sum_{i=1}^n \frac{Y_i A_i}{\hat g(L_i)}\right) \bigg/ \left(\frac{1}{n} \sum_{i=1}^n \frac{A_i}{\hat g(L_i)}\right)
 $$
-As mentioned in Technical Point 12.1, the weights corresponding to the Hajek estimator are "stable" in the sense that they guarantee the estimator will respect the bounds of the outcome.
+Notice we can re-write this as
+$$
+\hat \psi_a^\text{Hajék} = \frac{1}{n} \sum_{i=1}^n Y_i \color{blue} \frac{A_i}{\hat g(L_i)}\left(\frac{1}{n} \sum_{i=1}^n \frac{A_i}{\hat g(L_i)}\right)^{-1}\color{black},
+$$
+where the blue term above corresponds to the stabilized weight for each subject. As mentioned in Technical Point 12.1, the weights corresponding to the Hajék estimator are "stable" in the sense that they guarantee the estimator will respect the bounds of the outcome, and also have the property that the sum of the weights will equal the sample size, $n$.
 
 ```{r}
 # Make formula for logistic regression (include every covariate and quadratic terms)
@@ -117,11 +126,11 @@ analysis_data$stbl_ipw <- with(analysis_data,
 
 Then, I plot the weights
 
-```{r}
+```{r,warning=FALSE, message=FALSE}
 # Make df for plotting weights
 plotdf <- with(analysis_data,
                data.frame(weight = c(ipw,stbl_ipw),
-                                        type = rep(c('IPW','Stabilized'),
+                                        type = rep(c('IPW','Stabilized IPW'),
                                                    each = nrow(analysis_data))))
 # Plot the weights
 plotdf %>%
@@ -133,7 +142,32 @@ plotdf %>%
   theme_minimal()
 ```
 
-By construction, the stabilized weights are proportional to the unstabilized ones.
+By construction, the stabilized weights are proportional to the unstabilized ones, so their empirical distribution is the same up to a proportionality constant (the stabilization term).
+
+### Part b
+
+With the weights constructed, we can form the IPW estimator
+
+```{r}
+get_ipw <- function(data, weight) {
+  n <- nrow(data)
+  est <- with(data, mean(qsmk * wt82_71 * weight) - mean((1 - qsmk) * wt82_71 * weight))
+  se <- sqrt(with(data, var(qsmk * wt82_71 * weight - (1 - qsmk) * wt82_71 * weight) / n))
+  ci <- est + c(-1, 1) * 1.96 * se
+  list(est = est, se = se, ci = ci)
+}
+
+# Applying the function to both weights
+ipw_est <- get_ipw(analysis_data, analysis_data$ipw)
+stipw_est <- get_ipw(analysis_data, analysis_data$stbl_ipw)
+```
+
+The estimates are included below:
+
+```{r}
+print(paste0('IPW estimate: ', round(ipw_est$est,3)))
+print(paste0('Stabilized IPW estimate: ', round(stipw_est$est,3)))
+```
 
 ### Part c
 
@@ -142,16 +176,105 @@ Two methods for estimating the variance of the IPW estimator are (1) bootstrappi
 $$
 \sqrt n (\hat \psi^\text{IPW} - \psi) \rightarrow N(0, V)
 $$
+
 where 
 
 $$
 V = \text{Var}\left[ \frac{AY}{g(L)} \right]
 $$
+
 which can be consistently estimated by
 
 $$
 \hat V = \frac{1}{n-1} \sum_{i=1}^n \left( \frac{A_i Y_i}{\hat g(L_i)} - \hat \psi^\text{IPW} \right)^2
 $$
+
+My code above produces analytical SEs. The 95\% CIs are below:
+
+```{r}
+print(paste0('IPW 95% CI: (', round(ipw_est$ci[1],3),',',
+             round(ipw_est$ci[2],3),')'))
+print(paste0('Stabilized IPW 95% CI: (', round(stipw_est$ci[1],3),',',
+             round(stipw_est$ci[2],3),')'))
+```
+
+### Part d
+
+To summarize:
+
+```{r}
+comparison_df <- data.frame(
+  Method = c('IPW', 'Stabilized IPW'),
+  Estimate = c(ipw_est$est, stipw_est$est),
+  `Standard Error` = c(ipw_est$se, stipw_est$se),
+  `Lower 95% CI` = c(ipw_est$ci[1], stipw_est$ci[1]),
+  `Upper 95% CI` = c(ipw_est$ci[2], stipw_est$ci[2])
+)
+
+knitr::kable(comparison_df, 
+             caption = "Comparison of IPW and Stabilized IPW Estimates")
+```
+
+Unsurprisingly, the stabilized and unstabilized IPW are similar, since the normalization term was nearly 1.
+
+## Part 2: Doubly Robust Estimation
+
+I include my code for estimating $m_A(L)$, and extracting the predictions, below:
+
+```{r}
+outstr <- as.formula(paste(outcome, '~', paste(covs, collapse = '+'),
+                            '+ qsmk + I(age^2) + I(wt71^2) + I(smokeintensity^2) + 
+                            I(smokeyrs^2)'))
+
+# fit the outcome model
+outcome_mod <- lm(outstr, data = analysis_data)
+
+# Extract predictions under each treatment
+m1 <- predict(outcome_mod, newdata = analysis_data %>% mutate(qsmk = 1))
+m0 <- predict(outcome_mod, newdata = analysis_data %>% mutate(qsmk = 0))
+```
+
+### Part b
+
+I obtain the point estimate of the DR estimator below:
+
+```{r}
+# Form the DR estimator
+dr_est <- list() 
+dr_est$est <- with(analysis_data,
+                   ipw_est$est + 
+                   mean(
+                     (1-qsmk/ghat)*m1 - (1 - (1-qsmk)/(1-ghat))*m0
+                   )
+                   )
+print(paste0('DR estimate: ', round(dr_est$est,3)))
+```
+
+### Part c
+
+I compute the doubly-robust estimator's SE analytically and compare it to the IPW estimators with the code below: 
+
+```{r}
+dr_est$se <- sqrt(with(analysis_data,
+                       var(
+                         (1-qsmk/ghat)*m1 - (1 - (1-qsmk)/(1-ghat))*m0
+                       )/nrow(analysis_data)))
+dr_est$ci <- dr_est$est + c(-1,1)*1.96*dr_est$se
+
+comparison_df <- data.frame(
+  Method = c('IPW', 'Stabilized IPW', 'Doubly-Robust'),
+  Estimate = c(ipw_est$est, stipw_est$est, dr_est$est),
+  `Standard Error` = c(ipw_est$se, stipw_est$se,dr_est$se),
+  `Lower 95% CI` = c(ipw_est$ci[1], stipw_est$ci[1],dr_est$ci[1]),
+  `Upper 95% CI` = c(ipw_est$ci[2], stipw_est$ci[2],dr_est$ci[2])
+)
+
+knitr::kable(comparison_df, 
+             caption = "Comparison of IPW, Stabilized IPW, and Doubly-Robust Estimates")
+
+```
+
+We see the estimated standard error for the augmented estimator is notably smaller than either version of the IPW estimator.
 
 \clearpage
 
@@ -159,13 +282,25 @@ $$
 
 ## Part 1: Theory
 
-1. 
+1. Note that, as stated, there appears to be a small typo in the question. Without conditional exchangeability of censoring, i.e. that outcomes are MAR conditional on $L$, there is no way to guarantee the equivalence of the G-forumla (which conditions on no censoring) and IPW (which doesn't) as stated. What I'll aim to show instead is that 
+
+$$
+\E[\E(Y| A=a,C=0, L)] = \E \left( \frac{YI(A=a)}{g(L)} \bigg| C=0\right)
+$$
+First, define $g_a(L) = \E(I(A=a)|L,C=0)$, i.e. the conditional (on $L$) probability of $A=a$ **among the uncensored individuals**. Then, notice
 
 $$
 \begin{aligned}
-\E[Y | C=]
+\E[Y | A=a, C=0] &= \E[\E(Y | A=a, C=0, L)] \\
+&= \E\left[ \frac{g(L)}{g(L)} \E(Y | A=a, C=0, L)\right] \\
+&= \E\left[ \frac{\E(I(A=a)|L,C=0)}{g(L)} \E(Y | A=a, C=0, L)\right] \\
+&= \E\left[ \frac{\E(Y I(A=a) |C=0, L)}{g(L)} \right] \\
+&= \E\left[ \E\left( \frac{Y I(A=a)}{g(L)} \right) \bigg| L,C=0 \right] \\
+&= \E\left[ \frac{Y I(A=a)}{g(L)} \bigg| C=0\right]
 \end{aligned}
 $$
+
+Note the final term is the IPW among the uncensored individuals, and the first term on the right-hand side is the g-formula among the uncensored individuals. All this is telling us is that under positivity, the G-formula and IPW both are equivalent to the conditional mean of the outcome in the group that happened to have treatment value $a$ and that were uncensored. Note that this is **not** a causal quantity, which shouldn't be surprising given that we haven't made any causal assumptions.
 
 2. Notice
 
@@ -178,10 +313,9 @@ $$
 \end{aligned}
 $$
 
-The first line just applies iterated expectations. The second line uses conditional exchangeability (for both $A$ and $C$), while the third line holds under consistency. The fourth line just expands the iterated expectation.
+The first line just applies iterated expectations. The second line uses conditional exchangeability (for both $A$ and $C$), while the third line holds under consistency. The fourth line just expands the iterated expectation definition to make explicit that the third line is a more compact representation of the g-formula.
 
-3. If the outcome model is correctly specified (and parametric), but the propensity score model misspecified, then the DR estimator will still be consistent but typically have higher variance relative to the plug-in. So if one is reasonably confident in the outcome model but unconfident in the propensity model
-, the plug-in may be the preferred choice.
+3. If the outcome model is correctly specified (and parametric), but the propensity score model misspecified, then the DR estimator will still be consistent but typically have higher variance relative to the plug-in. So if one is reasonably confident in the outcome model but unconfident in the propensity model, the plug-in may be the preferred choice. If one is reasonably confident in both estimators, or not confident about the outcome model (and reasonably confident about the propensity model), then the DR estimator would be preferred.
 
 ## Part 2: Application
 
@@ -198,13 +332,14 @@ outstr <- as.formula(paste(outcome, '~', paste(covs, collapse = '+'),
 outcome_mod <- lm(outstr, data = analysis_data)
 ```
 
-Then, I extract the appropriate predicted values to form the plug-in estimator
+Then, I extract the appropriate predicted values to form the plug-in estimator. To construct the SE, I use the `marginaleffects` package. As discussed by --, the empirical variance of the plug-in estimator rends to be *anti-conservative*.
 
 ```{r}
-# Get the plug-in ATE estimate
+# Extract predicted values
 m1 <- predict(outcome_mod, newdata = analysis_data %>% mutate(qsmk = 1))
 m0 <- predict(outcome_mod, newdata = analysis_data %>% mutate(qsmk = 0))
 
+# Form the plug-in estimate
 plugin_est <- list(mean = mean(m1 - m0),
                    sd = sqrt(var(m1 - m0)/length(m1)))
 ```
@@ -212,5 +347,11 @@ plugin_est <- list(mean = mean(m1 - m0),
 - (b)
 
 - (c) No! It **is** true that under consistency, positivity and conditional exchangeability (as well as correct specification of the appropriate nuisance models) that  IPW and G-computation will be consistent for the same causal quantity. **However**, their variances generally differ, and since each estimator is a unique random variable we should never expect that they give the exact same estimate in finite samples. In practice, G-computation tends to have a lower variance than IPW ---
+
+2. 
+
+- (a): *Doubly-robust* if often used to refer to a few different things, all with related but not quite the same meanings. In this context, people may refer to AIPW as doubly-robust because (1) it's consistent if either the outcome or propensity model is correctly specified, (2) its statistical rate is the product of the rates of the two (hence the "double") nuisance models (e.g. if the outcome and propensity models can be estimated at $n^{-1/4}$ rates, then AIPW's statistical rate would be $\sqrt n$), and (3) that the estimator itself is derived from semi-parametric theory (i.e. formed based on the efficient influence function of the corresponding statistical estimand).
+ 
+- (b): We already implemented the DR estimator in Question 1 (the IPW section), so there is no need to do this again. I include the table originally provided in Question 1 below:
 
 
