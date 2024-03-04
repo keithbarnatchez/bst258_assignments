@@ -41,10 +41,15 @@ library(doParallel)
 
 ## Part 1: Theory
 
-1. 
+1.  If the  conditional expectation/propensity score models are correctly specified, then...
 
-- Property (1) holds under correct specification of the propensity score model. 
-- Under positivity and 
+- Property (1) by construction, as IPW weights are balancing weights. Notice this does *not* imply the IPW estimator is unbiased, as this requires conditional exchangeability.
+- Under **positivity**, property (2) holds. We'll rigorously show this in Part 2 of this assignment, so I defer the explanation until then.
+
+If we additionally assume conditional exchangeability, then...
+
+- The IPW estimator is unbiased for the counterfactual mean $\E(Y^a)$.
+- Meaning the mean in the psuedo-population equals the standardized mean in the original population, which equals $\E(Y^a)$.
 
 2. Assume consistency, positivity, and conditional exchangeability. Then, notice
 
@@ -61,6 +66,92 @@ $$
 $$
 :::
 
+\clearpage
+
+## Part 2: Application
+
+First, I load in and clean the data
+
+```{r}
+# Data cleaning
+nhefs <- read.csv('../data/nhefs.csv')
+
+# Get set of covariates for treatment + outcome regressions
+covs <- c('sex','age','race','education','smokeyrs','smokeintensity',
+          'active','exercise','wt71') 
+
+# Set outcome and treatment
+outcome <- 'wt82_71' ; treatment <- 'qsmk'
+
+# Set factor variables 
+factor_vars <- c('sex','race','education',
+                 'active','exercise')
+
+# Filter out the vars we want and only keep complete cases
+analysis_data <- nhefs %>%
+  select(covs, outcome,treatment) %>%
+  mutate_at(all_of(factor_vars), as.factor) %>%
+  filter(!is.na(wt82_71))
+```
+
+Next, I estimate the propensity score model and construct the stabilized + unstabilized weights. Note that I assume by stabilized weights, which has so far not been defined in the course nor defined in the problem set, we mean the weights corresponding to the Hajek estimator:
+$$
+\hat \psi_a^\text{Hajek} = \left(\frac{1}{n} \sum_{i=1}^n \frac{Y_i A_i}{\hat g(L_i)}\right) \bigg/ \left(\frac{1}{n} \sum_{i=1}^n \frac{A_i}{\hat g(L_i)}\right)
+$$
+As mentioned in Technical Point 12.1, the weights corresponding to the Hajek estimator are "stable" in the sense that they guarantee the estimator will respect the bounds of the outcome.
+
+```{r}
+# Make formula for logistic regression (include every covariate and quadratic terms)
+logistr <- as.formula(paste(treatment, '~', paste(covs, collapse = '+'),
+                            '+ I(age^2) + I(wt71^2) + I(smokeintensity^2) + 
+                            I(smokeyrs^2)'))
+
+# Get IPW weights
+ipw_mod <- glm(logistr, data = analysis_data, family = binomial)
+ghat <- predict(ipw_mod, type = 'response')
+
+analysis_data$ipw <- ifelse(analysis_data$qsmk == 1, 1/ghat, 1/(1-ghat))
+analysis_data$stbl_ipw <- with(analysis_data,
+                               ipw / mean(qsmk/ghat))
+```
+
+Then, I plot the weights
+
+```{r}
+# Make df for plotting weights
+plotdf <- with(analysis_data,
+               data.frame(weight = c(ipw,stbl_ipw),
+                                        type = rep(c('IPW','Stabilized'),
+                                                   each = nrow(analysis_data))))
+# Plot the weights
+plotdf %>%
+  ggplot(aes(x = weight)) + facet_wrap(~type, scales = 'free') +
+  geom_histogram(fill='steelblue',color='black') +
+  labs(title = 'Histogram of IPW Weights',
+       x = 'IPW Weight',
+       y = 'Frequency') +
+  theme_minimal()
+```
+
+By construction, the stabilized weights are proportional to the unstabilized ones.
+
+### Part c
+
+Two methods for estimating the variance of the IPW estimator are (1) bootstrapping, and (2) analytically, by noting that asymptotically (under conditional exchangeability, positivity and consistency, as well as correct specification of the propensity score model),
+
+$$
+\sqrt n (\hat \psi^\text{IPW} - \psi) \rightarrow N(0, V)
+$$
+where 
+
+$$
+V = \text{Var}\left[ \frac{AY}{g(L)} \right]
+$$
+which can be consistently estimated by
+
+$$
+\hat V = \frac{1}{n-1} \sum_{i=1}^n \left( \frac{A_i Y_i}{\hat g(L_i)} - \hat \psi^\text{IPW} \right)^2
+$$
 
 \clearpage
 
@@ -88,3 +179,38 @@ $$
 $$
 
 The first line just applies iterated expectations. The second line uses conditional exchangeability (for both $A$ and $C$), while the third line holds under consistency. The fourth line just expands the iterated expectation.
+
+3. If the outcome model is correctly specified (and parametric), but the propensity score model misspecified, then the DR estimator will still be consistent but typically have higher variance relative to the plug-in. So if one is reasonably confident in the outcome model but unconfident in the propensity model
+, the plug-in may be the preferred choice.
+
+## Part 2: Application
+
+1. Note that the data was already loaded in Part 1.
+
+- (a) First, I estimate the outcome model:
+
+```{r}
+outstr <- as.formula(paste(outcome, '~', paste(covs, collapse = '+'),
+                            '+ qsmk + I(age^2) + I(wt71^2) + I(smokeintensity^2) + 
+                            I(smokeyrs^2) + qsmk:smokeintensity'))
+
+# Estimate outcome model
+outcome_mod <- lm(outstr, data = analysis_data)
+```
+
+Then, I extract the appropriate predicted values to form the plug-in estimator
+
+```{r}
+# Get the plug-in ATE estimate
+m1 <- predict(outcome_mod, newdata = analysis_data %>% mutate(qsmk = 1))
+m0 <- predict(outcome_mod, newdata = analysis_data %>% mutate(qsmk = 0))
+
+plugin_est <- list(mean = mean(m1 - m0),
+                   sd = sqrt(var(m1 - m0)/length(m1)))
+```
+
+- (b)
+
+- (c) No! It **is** true that under consistency, positivity and conditional exchangeability (as well as correct specification of the appropriate nuisance models) that  IPW and G-computation will be consistent for the same causal quantity. **However**, their variances generally differ, and since each estimator is a unique random variable we should never expect that they give the exact same estimate in finite samples. In practice, G-computation tends to have a lower variance than IPW ---
+
+
