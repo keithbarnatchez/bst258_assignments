@@ -242,8 +242,8 @@ I include my code for estimating $m_A(L)$, and extracting the predictions, below
 
 ```{r}
 outstr <- as.formula(paste(outcome, '~', paste(covs, collapse = '+'),
-                            '+ qsmk + I(age^2) + I(wt71^2) + I(smokeintensity^2) + 
-                            I(smokeyrs^2)'))
+                        '+ qsmk + I(age^2) + I(wt71^2) + I(smokeintensity^2) + 
+                         I(smokeyrs^2) + I(qsmk*smokeintensity)'))
 
 # fit the outcome model
 outcome_mod <- lm(outstr, data = analysis_data)
@@ -298,7 +298,8 @@ comparison_df <- data.frame(
 )
 
 knitr::kable(comparison_df, 
-             caption = "Comparison of IPW, Stabilized IPW, and Doubly-Robust Estimates")
+             caption = "Comparison of IPW, Stabilized IPW, and Doubly-Robust Estimates",
+             digits=2)
 ```
 
 We see the estimated standard error for the augmented estimator is notably smaller than either version of the IPW estimator, partly because it incorporates covariate information to model the outcome.
@@ -376,11 +377,13 @@ m1 <- predict(outcome_mod, newdata = analysis_data %>% mutate(qsmk = 1))
 m0 <- predict(outcome_mod, newdata = analysis_data %>% mutate(qsmk = 0))
 
 # Form the plug-in estimate
-plugin_est <- list(mean = mean(m1 - m0),
-                   marginaleffects::avg_comparisons(outcome_mod, 
+plugin_est <- list(est = mean(m1 - m0),
+                   se=marginaleffects::avg_comparisons(outcome_mod, 
                                  variables=list(qsmk= c(0,1) ))$std.error)
 
-print(paste0("The plug-in estimate is ", plugin_est$mean, " with a standard error of ", plugin_est$sd))
+print(paste0("The plug-in estimate is ", 
+             round(plugin_est$est,2), " with a standard error of ", 
+             round(plugin_est$se,2)))
 ```
 
 - (b) We see the point estimates between IPW and the plug-in are similar, but that the plug-in has a smaller standard error. This isn't particularly surprising, as the plug-in estimator amounts to an average of differenced conditional expectation functions while IPW amounts to difference in weighted averages of the outcome. Since conditional expectations of an outcome will tend to have lower variance than the outcome itself, the asymptotic variance of G-comp in practice will tend to be lower and in turn it's not surprising the SE is lower in this application.
@@ -394,6 +397,8 @@ print(paste0("The plug-in estimate is ", plugin_est$mean, " with a standard erro
 - (b): We already implemented the DR estimator in Question 1 (the IPW section), so there is no need to do this again. I include the table originally provided in Question 1 below:
 
 ```{r}
-
+knitr::kable(comparison_df %>% filter(Method=='Doubly-Robust'), 
+             caption = "Doubly-Robust Estimate",
+             digits = 2)
 ```
 
