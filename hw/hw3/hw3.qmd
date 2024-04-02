@@ -1,0 +1,201 @@
+---
+title: "BST 258 Homework 3"
+format: pdf
+editor: visual
+---
+
+# Problem 1: EIF of the  covariance
+
+Suppose $O_1,\ldots,O_n \overset{\text{iid}}{\sim} \text{P} \in \mathcal{M}$, where $O_i=(A_i,Y_i)$ and $\mathcal{M}$ is a non-parametric model. We aim to find the efficient influence curve of 
+$$
+\Psi_\text{P}(O) := \text{Cov}_\text{P}(A,Y) 
+$$
+
+Since the model is fully n0n-parametric, we can use the point mass contamination strategy discussed in (cite hines here).
+
+As shown in Hines, for functionals of the form $\mathbb{E}_\text{P}[g(O,\text{P})]$, i.e. functions that can be written as the exectation of sum function of the data under a specified distribution living in $\mathcal{M}$, we can write the EIC as
+$$
+\begin{aligned}
+\frac{d}{dt} \mathbb{E}_{\text{P}_t}[g(O,\text{P}_t)])\bigg|_{t=0} = \mathbb{E}_{\text{P}_t} \left[ \frac{d}{dt} g(O,\text{P}_t) \right]\bigg|_{t=0} + g(\tilde{O},\text{P}) - \underbrace{\mathbb{E}_\text{P}[g(O,\text{P})]}_{\Psi(O,\text{P})}
+\end{aligned}
+$$
+Noting here that our functional satisfies this form when $g(O,\text{P}) = [Y-\mathbb{E}_\text{P}(Y)][X-\mathbb{E}_\text{P}(X)]$, we can just plug in to the above expression and take derivatives. Really, all the work revolves around this first term. I'll focus there:
+$$
+\begin{aligned}
+\mathbb{E}_{\text{P}_t}\left(\frac{d}{dt}[Y-\mathbb{E}_{\text{P}_t}(Y)][X-\mathbb{E}_{\text{P}_t}(X)]\bigg|_{t=0} \right)
+\end{aligned}
+$$
+I'll focus on the inner term, which as we'll see evaluates to 0:
+$$
+\begin{aligned}
+\frac{d}{dt}[Y-\mathbb{E}_{\text{P}_t}(Y)][X-\mathbb{E}_{\text{P}_t}(X)] 
+&= 
+-\left[\frac{d}{dt} \mathbb{E}_{\text{P}_t}(Y)\bigg|_{t=0}[X-\mathbb{E}_{\text{P}_0}(X)] + \frac{d}{dt}\mathbb{E}_{\text{P}_t}(X)\bigg|_{t=0}[Y-\mathbb{E}_{\text{P}_0}(Y)]\right] \\
+&=
+-\left[ (\underbrace{\tilde y - \mathbb{E}_\text{P}(Y)}_\text{scalar})[\underbrace{X-\mathbb{E}_{\text{P}_0}(X)}_\text{mean 0}] + (\underbrace{\tilde x - \mathbb{E}_\text{P}(X)}_\text{scalar})[\underbrace{Y-\mathbb{E}_{\text{P}_0}(Y)}_\text{mean 0}]\right] 
+\end{aligned}
+$$
+Above, the first line holds from the product rule, while in the second line we just substitute in the known expression for the EIC of a population mean. The clear implication from this is that the first term of the earlier expansion will have expectation 0. Going back to the general expression, we have that
+
+$$
+\begin{aligned}
+\begin{aligned}
+\frac{d}{dt} \mathbb{E}_{\text{P}_t}[g(O,\text{P}_t)])\bigg|_{t=0} &= \underbrace{\mathbb{E}_{\text{P}_t} \left[ \frac{d}{dt} g(O,\text{P}_t) \right]\bigg|_{t=0}}_{= 0 \text{ by above argument}} + g(\tilde{O},\text{P}) - \underbrace{\mathbb{E}_\text{P}[g(O,\text{P})]}_{\Psi(O,\text{P})} \\
+&=
+(\tilde y - \mathbb{E}_\text{P}(Y))(\tilde x - \mathbb{E}_\text{P}(X)) - \text{Cov}_\text{P}(A,Y)
+\end{aligned}
+\end{aligned}
+$$
+We see the efficient influence curve of $\text{Cov}_\text{P}(A,Y)$ is 
+
+$$
+(Y - \mathbb{E}_\text{P}(Y))(X - \mathbb{E}_\text{P}(X)) - \text{Cov}_\text{P}(A,Y)
+$$
+
+\clearpage
+
+# Problem 2: EIF of the expected conditional covariance
+
+\clearpage
+
+# Problem 3: One-step bias corrected conditional covariance estimator 
+
+Let $\hat m(L) = \hat{\mathbb{E}}_{\text{P}_n}(Y|L)$ and $\hat \pi(L) = \hat{\mathbb{E}}_{\text{P}_n}(A|L)$. Starting with the general definition of a one-step estimator, we have
+
+$$
+\begin{aligned}
+\hat{\psi}^{\text{OS}} &= \text{P}_n \Psi(O,\text{P}_n) + \text{P}_n(\psi^\text{IC}(O,\text{P}_n)) \\
+&= \text{P}_n \Psi(O,\text{P}_n) + \text{P}_n\left\{ [Y - \hat{m}(L)]\cdot[A-\hat \pi(L)] - {\Psi(O,\text{P}_n)} \right\} \\
+&= \text{P}_n\left\{ [Y - \hat{m}(L)]\cdot[A-\hat \pi(L)]  \right\} 
+\end{aligned}
+$$
+As is often the case with one-step estimators, the plug-in "cancels" with the centering term from the influence curve. Practically, we can implement the one-step estimator by
+
+1. Estimating $m(L)$ and $\pi(L)$
+2. Taking the empirical average of the above expression
+
+We're abstracting from cross-fitting here, but in practice we'd perform steps 1 and 2 on separate folds of the data, averaging the resulting estimates.
+
+```{r}
+
+expit <- function(o) {
+  return(exp(o)/(1+exp(o)))
+}
+
+sim_data <- function(n,p) {
+  
+  L <- mvtnorm::rmvnorm(n=n, mean=rep(0,p), sigma=diag(p))
+  A <- expit(colSums(L))
+  Y <- colSums(L) + A + A*colSums(L) + rnorm(n)
+  
+  return(data.frame(L=L,A=A,Y=Y))
+  
+}
+
+sim_iter <- function(n,p) {
+  df <- sim_data(n,p)
+  
+  # Estimate m 
+  mhat <- 1
+  
+  # Estimate pi
+  pihat <- 1
+  
+  # Compute one-step estimator
+}
+
+sim_main <- function(n,p,nsim) {
+  
+}
+```
+
+\clearpage
+
+# Problem 4: Variance-weighted treatment effect
+
+### Part 1
+
+**Credit due:** In working through this part, I got some ideas on how to handler trickier algebra steps from chapter 3 of *Mostly Harmless Econometrics*. First, we'll show how to arrive at the expression
+
+$$
+\frac{\mathbb{E}[\text{Cov}(A,Y | L)]}{\mathbb{E}[\text{Var}(A|L)]} = \mathbb{E}[w(L)(Y^1-Y^0)]
+$$
+The covariance-over-variance expression gives a hint that there's a connection between the variance weighted treatment effect and regression. Specifically, suppose we approximate the conditional expectation of $Y$ given $A$ and $L$ with a linear model containing no interactions: 
+
+$$
+\mathbb{E}(Y|L,A) = \alpha + \tau A + L\beta
+$$
+First, let $g(A|L) = A - \text{Proj}(A|L)$ where $\text{Proj}(A|L)$ is just the linear projection of $A$ onto $L$, so that $g(A|L)$ can just be thought of as the residuals from the linear regression of $A$ on $L$. Recall the Frisch-Waugh-Lovell theorem states that we can write $\tau$ as
+
+$$
+\tau = \frac{\text{Cov}[A-g(A|L),Y]}{\text{Var}[A-g(A|L)]}
+$$
+By construction, notice $\mathbb{E}(A-g(A|L))=0$ (linear regression residuals are mean zero) so that 
+
+$$
+\begin{aligned}
+\tau &= \frac{\text{Cov}[A-g(A|L),Y]}{\text{Var}[A-g(A|L)]} \\
+&= \frac{\mathbb{E}\{[A-g(A|L)]Y\}}{\text{Var}[A|L]} \\
+&= \frac{\mathbb{E}\{[A-g(A|L)]\mathbb{E}(Y|L,A)\}}{\text{Var}[A|L]} 
+\end{aligned}
+$$
+The third equality here is the key one. This line **also** holds to the Frisch-Waugh-Lovell theorem, which heuristically says that ----
+
+To proceed, notice that we can write
+
+$$
+\begin{aligned}
+\mathbb{E}[Y|A,L] = \mathbb{E}(Y|A=0,L) + A\{\underbrace{\mathbb{E}(Y|A=1,L) - \mathbb{E}(Y|A=0,L)}_{:= \tau_L}\}
+\end{aligned}
+$$
+where above I've let $\tau_L$ denote the conditional average treatment effect. Subbing this in above, we have that
+
+$$
+\begin{aligned}
+\tau &= \frac{\mathbb{E}\{[A-g(A|L)]\cdot [\mathbb{E}(Y|A=0,L) + A\tau_L]\}}{\text{Var}[A|L]} 
+\end{aligned}
+$$
+Above, notice 
+
+$$
+\mathbb{E}\{[A-g(A|L)]\cdot [\mathbb{E}(Y|A=0,L)]\} = 0,
+$$
+because $\mathbb{E}[L(A-g(A|L))]=0$ and $\mathbb{E}(Y|A=0,L)$ is a function of $L$ only. This leaves us with
+
+$$
+\begin{aligned}
+\tau &= \frac{\mathbb{E}\{[A-g(A|L)]\cdot A\tau_L\}}{\text{Var}[A|L]} \\
+&= \frac{\mathbb{E}\{\text{Var}(A|L)\tau_L\}}{\text{Var}[A|L]} \\
+&=
+ \frac{\mathbb{E}\{\text{Var}(A|L)\cdot [\mathbb{E}(Y|A=1,L) - \mathbb{E}(Y|A=0,L)]\}}{\text{Var}[A|L]} \\
+ &= 
+  \frac{\mathbb{E}\{\text{Var}(A|L)\cdot [\mathbb{E}(Y^1-Y^0|L) ]\}}{\text{Var}[A|L]} 
+\end{aligned}
+$$
+On the second line, I use the fact that --. On the third line I substitute in the definition of $\tau_L$, while on the fourth line we make use of consistency. 
+
+### Part 2
+
+First, notice using "EIF-calculus" and letting the EIF() return the EIF for a statistical estimand, we have that
+
+$$
+\begin{aligned}
+\text{EIF}\left(\frac{\mathbb{E}[\text{Cov}(A,Y | L)]}{\mathbb{E}[\text{Var}(A|L)]} \right) &= 
+\text{EIF}\left(\mathbb{E}[\text{Cov}(A,Y | L)]\mathbb{E}[\text{Var}(A|L)]^{-1}\right) \\
+\\
+&=
+\text{EIF}\left(\mathbb{E}[\text{Cov}(A,Y | L)]\right)\mathbb{E}[\text{Var}(A|L)]^{-1} \\
+&- \left(\frac{1}{\mathbb{E}[\text{Var}(A|L)]}\right)^2\text{EIF}(\mathbb{E}[\text{Var}(A|L)]) \mathbb{E}[\text{Cov}(A,Y | L)] \\
+\\ 
+&= \text{EIF}\left(\mathbb{E}[\text{Cov}(A,Y | L)]\right)\mathbb{E}[\text{Var}(A|L)]^{-1} \\
+&- \left(\frac{1}{\mathbb{E}[\text{Var}(A|L)]}\right)^2\text{EIF}(\mathbb{E}[\text{Cov}(A,A|L)]) \mathbb{E}[\text{Cov}(A,Y | L)]
+\end{aligned}
+$$
+While messy, notice this expression is entirely in terms of quantities we can calculate since we derived the EIF of the expected conditional covariance previously. We can plug in for the known EIF expression:
+
+$$
+\begin{aligned}
+\text{EIF}\left(\frac{\mathbb{E}[\text{Cov}(A,Y | L)]}{\mathbb{E}[\text{Var}(A|L)]} \right) &= \{[Y-m(L)][A-g(L)] - \psi_{AY}\}\mathbb{E}[\text{Var}(A|L)]^{-1} \\
+&- \left(\frac{1}{\mathbb{E}[\text{Var}(A|L)]}\right)^2\{[A-g(L)]^2 - \psi_A\}\mathbb{E}[\text{Cov}(A,Y | L)]
+\end{aligned}
+$$
