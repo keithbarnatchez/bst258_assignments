@@ -101,7 +101,7 @@ analysis_data <- nhefs %>%
 Next, I estimate the propensity score model and construct the stabilized + unstabilized weights. Note that I assume by stabilized weights, which has so far not been defined in the course nor defined in the problem set, we mean the weights outlined in Hernán and Robins chapter 12:
 
 $$
-\frac{\mathbb{P}(A)}{\mathbb{P}(A|L)}
+\frac{\mathbb{P}(A)}{\mathbb{P(A|L)}}
 $$
 
 <!-- $$ -->
@@ -116,15 +116,12 @@ $$
 \hat \psi_a^\text{Stb. Hajék} &= \frac{1}{n} \sum_{i=1}^n Y_i \color{blue} \frac{\hat{\mathbb{P}}(A_i)A_i}{\hat g(L_i)}\left(\frac{1}{n} \sum_{i=1}^n \frac{\hat{\mathbb{P}}(A_i)A_i}{\hat g(L_i)}\right)^{-1}\color{black} \ \ \ \text{(Stabilized)}
 \end{aligned}
 $$
-which can be equivalently obtained by estimating a simple linear (marginal structural) regression model, performing the regression with either the stabilized or unstabilized weights to get the corresponding version of the estimator:
 
-$$
-\mathbb{E}(Y^a) = \beta_0 + \beta_1 a,
-$$
+I do this because (1) as explained in What If Technical Point 12.2, simply adding $\hat{\mathbb{P}}(A_i)$ into the numerator of the weights results in an inconsistent estimator, and (2) even though the unstabilized weight estimator is consistent with the Hajék or Horvitz Thompson form, it's more sensible to compare "compatible" versions of the estimators. Further, the Hajek IPW estimator is generally more efficient.
 
-I do this because (1) as explained in What If Technical Point 12.2, simply adding $\hat{\mathbb{P}}(A_i)$ into the numerator of the weights results in an inconsistent estimator, and (2) even though the unstabilized weight estimator is consistent with the Hajék or Horvitz Thompson form, it's more sensible to compare "compatible" versions of the estimators. 
+My code for forming these weights is below
 
-Above, the blue term above corresponds to the stabilized weight for each subject. As mentioned in Technical Point 12.1, the weights corresponding to the Hajék estimator are "stable" in the sense that they guarantee the estimator will respect the bounds of the outcome, and also have the property that the sum of the weights will equal the sample size, $n$.
+<!-- Above, the blue term above corresponds to the stabilized weight for each subject. As mentioned in What If Technical Point 12.1, the weights corresponding to the Hajék estimator are "stable" in the sense that they guarantee the estimator will respect the bounds of the outcome, and also have the property that the sum of the weights will equal the sample size, $n$. -->
 
 ```{r}
 # Make formula for logistic regression (include every covariate and quadratic terms)
@@ -163,23 +160,22 @@ plotdf %>%
   theme_minimal()
 ```
 
-The stabilized weights are less disbursed than the unstabilized ones (providing intuition for why the corresponding estimator tends to be more efficient) and have an expectation of 1.
+The stabilized weights are less disbursed than the unstabilized ones (providing intuition for why the corresponding estimator tends to be more efficient) and have an expectation of 1 by construction.
 
 ### Part b
 
-With the weights constructed, we can form the IPW estimator. Since we're using Hajék estimators, we can estimate the ATE via a **weighted** simple linear regression, which was shown to be equivalent to the 
+With the weights constructed, we can form the IPW estimator. Since we're using Hajék estimators, we can estimate the ATE via a **weighted** simple linear regression, which was shown to be equivalent to the Hajék estimator in What If. My code is below:
 
 ```{r}
 get_ipw <- function(data, weight) {
   n <- nrow(data)
-
-  main_mod <- survey::svyglm(wt82_71 ~ qsmk,
-                             design = survey::svydesign(
-                               ids = ~ 1,
-                               weights = ~
-                                 weight,
-                               data = data
-                             ))
+  
+  # main_mod <- estimatr::lm_robust(wt82_71 ~ qsmk, data = data, weights = weight,
+  #                                 se_type='HC1')
+  
+  main_mod <- survey::svyglm(wt82_71 ~ qsmk, design = survey::svydesign(ids = ~1,
+                                                                       weights = ~weight,
+                                                                       data = data))
   
   est <- main_mod$coef[2]
   se <- vcov(main_mod)[2,2]^0.5
@@ -209,7 +205,7 @@ with either the stabilized or unstabilized weights above. As noted in What If, f
 
 ### Part c
 
-Two methods (among a few) for estimating the variance of the IPW estimator are (1) bootstrapping, and (2) via a robust variance estimator that accounts for the uncertainty in the weight estimation. Above, I used the latter method to obtain SEs, which is implemented in the `svyglm` package, which uses a robust Huber-White estimator of the variance. It should be noted the corresponding intervals tend to be conservative.
+Two methods (among a few) for estimating the variance of the IPW estimator are (1) bootstrapping, and (2) via a robust variance estimator that accounts for the uncertainty in the weight estimation. Above, I used the latter method to obtain SEs, which is implemented in the `lm_robust` function from the `estimatr` package, specifying the Huber-White estimator of the variance. It should be noted the corresponding intervals tend to be conservative.
 
 The 95\% CIs are below:
 
@@ -248,8 +244,8 @@ I include my code for estimating $m_A(L)$, and extracting the predictions, below
 
 ```{r}
 outstr <- as.formula(paste(outcome, '~', paste(covs, collapse = '+'),
-                        '+ qsmk + I(age^2) + I(wt71^2) + I(smokeintensity^2) + 
-                         I(smokeyrs^2) + I(qsmk*smokeintensity)'))
+                            '+ qsmk + I(age^2) + I(wt71^2) + I(smokeintensity^2) + 
+                            I(smokeyrs^2)'))
 
 # fit the outcome model
 outcome_mod <- lm(outstr, data = analysis_data)
@@ -281,11 +277,12 @@ I compute the doubly-robust estimator's SE analytically by noting
 
 $$
 \begin{aligned}
-\sqrt n(\hat \psi^\text{DR} - \psi) \overset{d}{\rightarrow}  \mathcal{N}\left(0, \mathbb{V}(\psi^\text{DR})\right)
+\sqrt n(\psi^\text{DR} - \psi) \overset{d}{\rightarrow} & \ \mathcal{N}\left(0, \mathbb{V}(\psi^\text{DR})\right)
 \end{aligned}
 $$
-so that we can just estimate the variance of the DR estimator via its empirical variance. 
-I compare the DR estimator to the IPW estimators with the code below: 
+where we can estimate $\mathbb{V}(\psi^\text{DR})$ with
+
+I compare it to the IPW estimators with the code below: 
 
 ```{r}
 dr_est$se <- sqrt(with(analysis_data,
@@ -303,11 +300,11 @@ comparison_df <- data.frame(
 )
 
 knitr::kable(comparison_df, 
-             caption = "Comparison of IPW, Stabilized IPW, and Doubly-Robust Estimates",
-             digits=2)
+             caption = "Comparison of IPW, Stabilized IPW, and Doubly-Robust Estimates")
+
 ```
 
-We see the estimated standard error for the augmented estimator is notably smaller than either version of the IPW estimator, partly because it incorporates covariate information to model the outcome. To be clear, this isn't a particularly fair comparison because I'm incorporating weight uncertainty in the IPW estimator SEs, but not in the DR estimator where I'm just using an asymptotic argument. A more fair comparison would be to just obtain bootstrap SEs for all three estimators.
+We see the estimated standard error for the augmented estimator is notably smaller than either version of the IPW estimator, partly because it incorporates covariate information to model the outcome.
 
 \clearpage
 
@@ -318,7 +315,7 @@ We see the estimated standard error for the augmented estimator is notably small
 1. Assume positivity holds. We aim to show 
 
 $$
-\sum_l \E(Y | A=a, L=l) \times \PP(L=l) = \E \left( \frac{YI(A=a)}{g(L)} \right)
+\E[\E(Y| A=a, L)] = \E \left( \frac{YI(A=a)}{g(L)} \right)
 $$
 
 First, define $g_a(L) = \E(I(A=a)|L)$, i.e. the conditional (on $L$) probability of $A=a$. Then, notice
@@ -334,9 +331,10 @@ $$
 \end{aligned}
 $$
 
-Note the final term is the IPW among the uncensored individuals, and the first term on the right-hand side is the g-formula among the uncensored individuals. Positivity ensures the condtional expectations are well-defined and that dividing by $g_a(L)$ is a valid operation.
+Note the final term is the IPW among the uncensored individuals, and the first term on the right-hand side is the g-formula among the uncensored individuals. Positivity ensures the condtional expectations are well-defined and that dividing by $g_a(L)$ is a valid operations.
+Note that the above is **not** necessarily a causal quantity, which shouldn't be surprising given that we haven't made any causal assumptions.
 
-<!-- All this is telling us is that under positivity, the G-formula and IPW both are equivalent to the conditional mean of the outcome in the group that happened to have treatment value $a$ and that were uncensored. Note that this is **not** a causal quantity, which shouldn't be surprising given that we haven't made any causal assumptions. -->
+<!-- All this is telling us is that under positivity, the G-formula and IPW both are equivalent to the conditional mean of the outcome in the group that happened to have treatment value $a$ and that were uncensored.  -->
 
 2. Notice
 
@@ -351,15 +349,11 @@ $$
 
 The first line just applies iterated expectations. The second line uses conditional exchangeability, while the third line holds under consistency. The fourth line just expands the iterated expectation definition to make explicit that the third line is a more compact representation of the g-formula.
 
-3. If the outcome model is correctly specified, but the propensity score model is misspecified, then the DR estimator will still be consistent but typically have higher variance relative to the plug-in. So if one is reasonably confident in the outcome model but not confident in the propensity model, the plug-in may be the preferred choice. 
+3. If the outcome model is correctly specified (and parametric), but the propensity score model misspecified, then the DR estimator will still be consistent but typically have higher variance relative to the plug-in. So if one is reasonably confident in the outcome model but not confident in the propensity model, the plug-in may be the preferred choice. If one is reasonably confident in both estimators, or not confident about the outcome model (and reasonably confident about the propensity model), then the DR estimator would be preferred.
 
-**If the true nuisance models are non-parametric and estimated non-parametrically,** and one is reasonably confident in *both* estimators, or not confident about the outcome model (and reasonably confident about the propensity model), then the DR estimator would be preferred.
-
-If one is reasonably confident that the true outcome model falls in a *parametric* family (super unrealistic, of course), then the plug-in would also be preferred -- the DR estimator attains the efficiency bound in non-parametric models, but not in parametric models, where the plug-in would be preferred. This is a bit of a moot point because we'll rarely have reason to strongly believe that a parametric model truly captures the process governing the conditional outcome distribution, but worth considering.
- 
 ## Part 2: Application
 
-1.
+1. Note that the data was already loaded in Part 1.
 
 - (a) First, I estimate the outcome model (though we already did this in the IPW section):
 
@@ -372,9 +366,7 @@ outstr <- as.formula(paste(outcome, '~', paste(covs, collapse = '+'),
 outcome_mod <- lm(outstr, data = analysis_data)
 ```
 
-Then, I extract the appropriate predicted values to form the plug-in estimator. The question makes it unclear if we should just report a point estimate or also a standard error, so for completeness I report both.
-
-To estimate the SE, I use the `marginaleffects` package so as to correctly incorporate uncertainty in estimating $m_A(L)$. As discussed in Chapter 8 of [A Ride in Targeted Learning Theory](https://achambaz.github.io/tlride/8-naive-estimators.html), the empirical variance of the plug-in estimator is an *anti-conservative* estimate of the true asymptotic variance. `marginaleffects` uses the delta method to incorporate the uncertainty in estimating $m_A(L)$.
+Then, I extract the appropriate predicted values to form the plug-in estimator. To construct the SE, I use the `marginaleffects` package. As discussed by --, the empirical variance of the plug-in estimator tends to be *anti-conservative*.
 
 ```{r}
 # Extract predicted values
@@ -382,28 +374,26 @@ m1 <- predict(outcome_mod, newdata = analysis_data %>% mutate(qsmk = 1))
 m0 <- predict(outcome_mod, newdata = analysis_data %>% mutate(qsmk = 0))
 
 # Form the plug-in estimate
-plugin_est <- list(est = mean(m1 - m0),
-                   se=marginaleffects::avg_comparisons(outcome_mod, 
-                                 variables=list(qsmk= c(0,1) ))$std.error)
+plugin_est <- list(mean = mean(m1 - m0),
+                   sd = sqrt(var(m1 - m0)/length(m1)))
 
-print(paste0("The plug-in estimate is ", 
-             round(plugin_est$est,2), " with a standard error of ", 
-             round(plugin_est$se,2)))
+print(paste0("The plug-in estimate is ", plugin_est$mean, " with a standard error of ", plugin_est$sd))
 ```
 
-- (b) We see the point estimates between IPW and the plug-in are similar, but that the plug-in has a smaller standard error. This isn't particularly surprising, as the plug-in estimator amounts to an average of differenced conditional expectation functions while IPW amounts to difference in weighted averages of the outcome. Since conditional expectations of an outcome will tend to have lower variance than the outcome itself, the asymptotic variance of G-comp in practice will tend to be lower and in turn it's not surprising the SE is lower in this application. There can be counterexamples, but this is one factor behind why G-comp often appears to have smaller SEs in applied practice.
+- (b) **Comparison**: Looking back to the IPW estimates, we see that the plug-in estimate
 
-- (c) No! Look no further than this problem set, where the estimators differ in their point estimate. It **is** true that under consistency, positivity and conditional exchangeability (as well as correct specification of the appropriate nuisance models) that  IPW and G-computation estimators will be consistent for the same causal quantity (and under just positivity consistent for the same statistical, non-causal quantity). **However**, their asymptotic variances generally differ, and since each estimator is a unique random variable we should never expect that they give the exact same estimate in finite samples. 
+**Elaborating on the distinct approaches**
+
+- (c) No! It **is** true that under consistency, positivity and conditional exchangeability (as well as correct specification of the appropriate nuisance models) that  IPW and G-computation will be consistent for the same causal quantity (and under just positivity consistent for the same statistical quantity). **However**, their variances generally differ, and since each estimator is a unique random variable we should never expect that they give the exact same estimate in finite samples. In practice (under correct specifications), G-computation *tends* to have a lower variance than IPW
+
 
 2. 
 
-- (a): *Doubly-robust* if often used to refer to a few different things, all with related but not quite the same meanings. In this context, people may refer to AIPW as doubly-robust because (1) it's consistent if either the outcome or propensity model is correctly specified, (2) its statistical rate is the product of the rates of the two (hence the "double") nuisance models (e.g. if the outcome and propensity models can be estimated at $n^{-1/4}$ rates, then AIPW's statistical rate would be $\sqrt n$), and (3) that the estimator itself is derived from semi-parametric theory (i.e. formed based on the efficient influence curve of the corresponding statistical estimand), and as a result takes advantage of the "double-robustness" of the estimand itself -- in this view, double-robustness is more a property of the estimand, and "double-robust" estimators are ones that leverage that property of the estimand.
+- (a): *Doubly-robust* if often used to refer to a few different things, all with related but not quite the same meanings. In this context, people may refer to AIPW as doubly-robust because (1) it's consistent if either the outcome or propensity model is correctly specified, (2) its statistical rate is the product of the rates of the two (hence the "double") nuisance models (e.g. if the outcome and propensity models can be estimated at $n^{-1/4}$ rates, then AIPW's statistical rate would be $\sqrt n$), and (3) that the estimator itself is derived from semi-parametric theory, taking advantage of the fact that the statistical quantity being estimated allows  (i.e. formed based on the efficient influence function of the corresponding statistical estimand).
  
 - (b): We already implemented the DR estimator in Question 1 (the IPW section), so there is no need to do this again. I include the table originally provided in Question 1 below:
 
 ```{r}
-knitr::kable(comparison_df %>% filter(Method=='Doubly-Robust'), 
-             caption = "Doubly-Robust Estimate",
-             digits = 2)
+
 ```
 

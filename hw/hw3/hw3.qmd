@@ -1,31 +1,44 @@
 ---
 title: "BST 258 Homework 3"
 format: pdf
-editor: visual
+editor: source
 ---
 
-# Problem 1: EIF of the  covariance
+```{r,echo=FALSE,warning=FALSE,message=FALSE}
+library(tidyverse)
+library(foreach)
+library(doParallel)
+library(SuperLearner)
+```
+
+# Problem 1: EIF of the covariance
 
 Suppose $O_1,\ldots,O_n \overset{\text{iid}}{\sim} \text{P} \in \mathcal{M}$, where $O_i=(A_i,Y_i)$ and $\mathcal{M}$ is a non-parametric model. We aim to find the efficient influence curve of 
+
 $$
 \Psi_\text{P}(O) := \text{Cov}_\text{P}(A,Y) 
 $$
 
 Since the model is fully n0n-parametric, we can use the point mass contamination strategy discussed in (cite hines here).
 
-As shown in Hines, for functionals of the form $\mathbb{E}_\text{P}[g(O,\text{P})]$, i.e. functions that can be written as the exectation of sum function of the data under a specified distribution living in $\mathcal{M}$, we can write the EIC as
+As shown in Hines, for functionals of the form $\mathbb{E}_\text{P}[g(O,\text{P})]$, i.e. functions that can be written as the exectation of sum function of the data under a specified distribution living in $\mathcal{M}$, we can write the EIC as 
+
 $$
 \begin{aligned}
 \frac{d}{dt} \mathbb{E}_{\text{P}_t}[g(O,\text{P}_t)])\bigg|_{t=0} = \mathbb{E}_{\text{P}_t} \left[ \frac{d}{dt} g(O,\text{P}_t) \right]\bigg|_{t=0} + g(\tilde{O},\text{P}) - \underbrace{\mathbb{E}_\text{P}[g(O,\text{P})]}_{\Psi(O,\text{P})}
 \end{aligned}
-$$
-Noting here that our functional satisfies this form when $g(O,\text{P}) = [Y-\mathbb{E}_\text{P}(Y)][X-\mathbb{E}_\text{P}(X)]$, we can just plug in to the above expression and take derivatives. Really, all the work revolves around this first term. I'll focus there:
+$$ 
+
+Noting here that our functional satisfies this form when $g(O,\text{P}) = [Y-\mathbb{E}_\text{P}(Y)][X-\mathbb{E}_\text{P}(X)]$, we can just plug in to the above expression and take derivatives. Really, all the work revolves around this first term. I'll focus there: 
+
 $$
 \begin{aligned}
 \mathbb{E}_{\text{P}_t}\left(\frac{d}{dt}[Y-\mathbb{E}_{\text{P}_t}(Y)][X-\mathbb{E}_{\text{P}_t}(X)]\bigg|_{t=0} \right)
 \end{aligned}
-$$
-I'll focus on the inner term, which as we'll see evaluates to 0:
+$$ 
+
+I'll focus on the inner term, which as we'll see evaluates to 0: 
+
 $$
 \begin{aligned}
 \frac{d}{dt}[Y-\mathbb{E}_{\text{P}_t}(Y)][X-\mathbb{E}_{\text{P}_t}(X)] 
@@ -34,19 +47,19 @@ $$
 &=
 -\left[ (\underbrace{\tilde y - \mathbb{E}_\text{P}(Y)}_\text{scalar})[\underbrace{X-\mathbb{E}_{\text{P}_0}(X)}_\text{mean 0}] + (\underbrace{\tilde x - \mathbb{E}_\text{P}(X)}_\text{scalar})[\underbrace{Y-\mathbb{E}_{\text{P}_0}(Y)}_\text{mean 0}]\right] 
 \end{aligned}
-$$
+$$ 
+
 Above, the first line holds from the product rule, while in the second line we just substitute in the known expression for the EIC of a population mean. The clear implication from this is that the first term of the earlier expansion will have expectation 0. Going back to the general expression, we have that
 
 $$
-\begin{aligned}
 \begin{aligned}
 \frac{d}{dt} \mathbb{E}_{\text{P}_t}[g(O,\text{P}_t)])\bigg|_{t=0} &= \underbrace{\mathbb{E}_{\text{P}_t} \left[ \frac{d}{dt} g(O,\text{P}_t) \right]\bigg|_{t=0}}_{= 0 \text{ by above argument}} + g(\tilde{O},\text{P}) - \underbrace{\mathbb{E}_\text{P}[g(O,\text{P})]}_{\Psi(O,\text{P})} \\
 &=
 (\tilde y - \mathbb{E}_\text{P}(Y))(\tilde x - \mathbb{E}_\text{P}(X)) - \text{Cov}_\text{P}(A,Y)
 \end{aligned}
-\end{aligned}
 $$
-We see the efficient influence curve of $\text{Cov}_\text{P}(A,Y)$ is 
+
+We see the efficient influence curve of $\text{Cov}_\text{P}(A,Y)$ is
 
 $$
 (Y - \mathbb{E}_\text{P}(Y))(X - \mathbb{E}_\text{P}(X)) - \text{Cov}_\text{P}(A,Y)
@@ -56,11 +69,96 @@ $$
 
 # Problem 2: EIF of the expected conditional covariance
 
+Continuing to let $g(O,\text{P}) = \mathbb{E}_\text{P}[\text{Cov}(A,Y)]$, we can write the statistical estimand as
+
+$$
+\Psi_\text{P}(O) = \mathbb{E}_\text{P}[g(O,\text{P})|L] = \mathbb{E}_\text{P}[\text{Cov}(A,Y \ | \ L)]
+$$
+
+We're interested in finding
+
+$$
+\frac{d}{dt} \mathbb{E}_{\text{P}_t}[g(O,\text{P}_t)|L]\bigg|_{t=0}
+$$
+
+Via the expansion provided by Hines, notice we can write
+
+$$
+\begin{aligned}
+\frac{d}{dt} \mathbb{E}_{\text{P}_t}[\text{Cov}(A,Y \ | \ L)]\bigg|_{t=0} &= 
+\text{Cov}(A,Y|\tilde l) - \Psi_\text{P}(O) + \mathbb{E}_\text{P}\left[\frac{d}{dt} \text{Cov}_{\text{P}_t}(A,Y \ | \ L)\bigg|_{t=0} | L = l\right]
+\end{aligned}
+$$
+
+We'll first deal with the third term on the right-hand side above. Notice that in general
+
+$$
+\begin{aligned}
+\frac{d}{dt} \mathbb{E}_{\text{P}_t}[g(O,\text{P}_t)|L]\bigg|_{t=0} &= 
+\frac{\mathbb{I}_{\tilde l}(l)}{f(l)}[g(\tilde o,\text{P}) - \mathbb{E}_\text{P}\{g(O,\text{P}) | l \}] +
+\mathbb{E}_\text{P}\left[ \frac{d}{dt} g(O,\text{P}_t) \bigg|_{t=0} | L=l\right]
+\end{aligned}
+$$ 
+Plugging in $g(O,\text{P}) = \text{Cov}(A,Y)$, we have
+
+$$
+\begin{aligned}
+\frac{d}{dt} \mathbb{E}_{\text{P}_t}[\text{Cov}(A,Y \ | \ L)]\bigg|_{t=0} &=
+\frac{\mathbb{I}_{\tilde l}(l)}{f(l)}[\text{Cov}(A,Y|\tilde l) - \Psi_\text{P}(O)] +
+\mathbb{E}_\text{P}\left[ \frac{d}{dt}[ (
+ Y-\mathbb{E}_{\text{P}_t}(Y|L))(A-\mathbb{E}_{\text{P}_t}(A|L)]\bigg|_{t=0} | L=l\right]
+\end{aligned}
+$$
+
+Focus on the second term above. Notice 
+$$
+\scriptsize
+\begin{aligned}
+\frac{d}{dt}[(
+ Y-\mathbb{E}_{\text{P}_t}(Y|L))(A-\mathbb{E}_{\text{P}_t}(A|L)]\bigg|_{t=0} 
+ &= 
+ - \left( 
+ \frac{d}{dt}\mathbb{E}_{\text{P}_t}(Y|L) \bigg|_{t=0}(A-\mathbb{E}_{\text{P}_0}(A|L)) + 
+ \frac{d}{dt}\mathbb{E}_{\text{P}_t}(A|L) \bigg|_{t=0}(Y-\mathbb{E}_{\text{P}_0}(Y|L))\right) \\
+ &=
+ - \left(\frac{\mathbb{I}_{\tilde l}(l)}{f(l)}[\tilde a - \mathbb{E}_{\text{P}_0}(A|L)] [Y-\mathbb{E}_{\text{P}_0}(Y|L)] \right) - \left(\frac{\mathbb{I}_{\tilde l}(l)}{f(l)}[\tilde y - \mathbb{E}_{\text{P}_0}(Y|L)] [A-\mathbb{E}_{\text{P}_0}(A|L)] \right) \\
+\end{aligned}
+$$
+This implies
+
+$$
+\scriptsize
+\begin{aligned}
+\mathbb{E}_\text{P}\left[ \frac{d}{dt}  [Y-\mathbb{E}_{\text{P}_t}(Y|L))(A-\mathbb{E}_{\text{P}_t}(A|L))] \bigg|_{t=0} | L=l\right] &= 
+- \mathbb{E}_\text{P}\left\{ \left(\frac{\mathbb{I}_{\tilde l}(l)}{f(l)}[\tilde a - \mathbb{E}_{\text{P}_0}(A|L)] [Y-\mathbb{E}_{\text{P}_0}(Y|L)] \right) - \left(\frac{\mathbb{I}_{\tilde l}(l)}{f(l)}[\tilde y - \mathbb{E}_{\text{P}_0}(Y|L)] [A-\mathbb{E}_{\text{P}_0}(A|L)] \right) \bigg| L=l \right\} \\
+&= - \frac{\mathbb{I}_{\tilde l}(l)}{f(l)}[\text{Cov}(A,Y|\tilde l) - \Psi_\text{P}(O)]
+\end{aligned}
+$$
+Notice this implies
+
+$$
+\frac{d}{dt} \mathbb{E}_{\text{P}_t}[\text{Cov}(A,Y \ | \ L)]\bigg|_{t=0} = 0,
+$$
+and in turn we have
+
+$$
+\frac{d}{dt} \mathbb{E}_{\text{P}_t}[\text{Cov}(A,Y \ | \ L)]\bigg|_{t=0} = 
+\text{Cov}(A,Y|\tilde l) - \Psi_\text{P}(O) 
+$$
+Recalling $\text{Cov}(A,Y|\tilde l) = [Y-\mathbb{E}(Y|\tilde l)][A-\mathbb{E}(A|\tilde l)]$, we have that the efficient influence curve of the expected conditional covariance is given by
+
+$$
+[Y - \mathbb{E}_\text{P}(Y|L)][A - \mathbb{E}_\text{P}(A|L)] - \Psi_\text{P}(O)
+$$
+
+
 \clearpage
 
-# Problem 3: One-step bias corrected conditional covariance estimator 
+# Problem 3: One-step bias corrected conditional covariance estimator
 
-Let $\hat m(L) = \hat{\mathbb{E}}_{\text{P}_n}(Y|L)$ and $\hat \pi(L) = \hat{\mathbb{E}}_{\text{P}_n}(A|L)$. Starting with the general definition of a one-step estimator, we have
+### Part a and b
+
+Let $\hat m(L) = \hat{\mathbb{E}}_{\text{P}_n}(Y|L)$ and $\hat g(L) = \hat{\mathbb{E}}_{\text{P}_n}(A|L)$. Starting with the general definition of a one-step estimator, we have
 
 $$
 \begin{aligned}
@@ -68,13 +166,25 @@ $$
 &= \text{P}_n \Psi(O,\text{P}_n) + \text{P}_n\left\{ [Y - \hat{m}(L)]\cdot[A-\hat \pi(L)] - {\Psi(O,\text{P}_n)} \right\} \\
 &= \text{P}_n\left\{ [Y - \hat{m}(L)]\cdot[A-\hat \pi(L)]  \right\} 
 \end{aligned}
-$$
+$$ 
+
 As is often the case with one-step estimators, the plug-in "cancels" with the centering term from the influence curve. Practically, we can implement the one-step estimator by
 
-1. Estimating $m(L)$ and $\pi(L)$
-2. Taking the empirical average of the above expression
+1.  Estimating $m(L)$ and $\pi(L)$
+2.  Taking the empirical average of the above expression
 
-We're abstracting from cross-fitting here, but in practice we'd perform steps 1 and 2 on separate folds of the data, averaging the resulting estimates.
+We're abstracting from cross-fitting here, but in practice we'd perform steps 1 and 2 on separate folds of the data, averaging the resulting estimates if we believed the true P lived in a non-parametric model.
+
+We'll keep things simple and simulate the following DGP:
+
+$$
+\begin{aligned}
+& L \sim N(0,1) \\ & A|L \sim \text{Bernouli}(\text{expit}(L)) \\ & Y|(A,L) \sim N(\mu=L,\sigma^2=1) 
+\end{aligned}
+$$
+Notice $Y$ is independent at $A$ given $L$, so that for any $l$ the true conditional covariance is 0 and in turn the expected conditional covariance is 0.
+
+My code for implementing the one-step estimator, and evaluating it through simulation, is below.
 
 ```{r}
 
@@ -85,29 +195,110 @@ expit <- function(o) {
 sim_data <- function(n,p) {
   
   L <- mvtnorm::rmvnorm(n=n, mean=rep(0,p), sigma=diag(p))
-  A <- expit(colSums(L))
-  Y <- colSums(L) + A + A*colSums(L) + rnorm(n)
+  A <- rbinom(n,size=1,prob=expit(rowSums(L)))
+  Y <- rowSums(L) + rnorm(n)
   
   return(data.frame(L=L,A=A,Y=Y))
   
 }
 
-sim_iter <- function(n,p) {
-  df <- sim_data(n,p)
+sim_iter <- function(n,p,sl.lib) {
+  
+  # First, simulate data
+  df <- sim_data(n,p) 
+  
+  # Extract covariates from df (anything whose name starts with L)
+  L <- subset(df, select=grepl("^L", names(df)))
   
   # Estimate m 
-  mhat <- 1
+  mhat <- SuperLearner(Y=df$Y, X=L, SL.library=sl.lib)
   
   # Estimate pi
-  pihat <- 1
+  pihat <- SuperLearner(Y=df$A, X=L, SL.library=sl.lib,family = binomial())
   
   # Compute one-step estimator
+  psi_os <- mean((df$Y - mhat$SL.predict) * (df$A - pihat$SL.predict))
+  psi_se <- sqrt(var((df$Y - mhat$SL.predict) * (df$A - pihat$SL.predict))/n)
+  
+  return(data.frame(
+    os_est=psi_os,
+    os_se=psi_se
+  ))
+  
 }
 
-sim_main <- function(n,p,nsim) {
+sim_main <- function(n,p,nsim,sl.lib) {
+  
+  out <- foreach(i=1:nsim) %do% {
+    # # Print every 10 
+    # if(i %% 10 == 0) {
+    #   print(i)
+    # }
+    cbind(sim_iter(n,p,sl.lib),n)
+  }
+  
+  return(out)
   
 }
 ```
+
+I run the simulation with the following code. Looking ahead to the next part, I fit the nuisance models once via GLMs, and once more with a random forest. Again, while we're using the SuperLearner function, we're only specifying a *single* library in each case (effectively just using that method).
+
+```{r,cache=TRUE}
+n_grid <- c(100,400,900,1600,2500)
+nsim <- 1e2
+p <- 1
+sl.lib <- c('SL.glm')
+
+# Run the simulation, fitting with GLMs
+sim_results_glm <- lapply(n_grid, function(n) {
+  sim_main(n,p,nsim,sl.lib)
+})
+
+# Combine the results
+sim_results_glm <- do.call(rbind, sim_results_glm)
+sim_results_glm <- do.call(rbind, sim_results_glm)
+
+# Run the simulation, fitting with random forests
+sl.lib <- c('SL.ranger')
+sim_results_rf <- lapply(n_grid, function(n) {
+  sim_main(n,p,nsim,sl.lib)
+})
+
+sim_results_rf <- do.call(rbind, sim_results_rf)
+sim_results_rf <- do.call(rbind, sim_results_rf)
+
+# Append the two
+sim_results_rf$method <- 'Random Forest'
+sim_results_glm$method <- 'GLM'
+```
+
+
+Then, I plot the sampling distribution of each estimator
+
+```{r}
+sim_results <- rbind(sim_results_glm,sim_results_rf)
+
+sim_results %>% ggplot(aes(x=os_est)) + geom_histogram(bins=50) + facet_grid(method~n) +
+  labs(title='Sampling dist. of one-step estimator at each sample size',
+       x='One-step estimate', y='Frequency') +
+  theme_bw() + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+```
+
+We can also look at a table of the mean and standard error of the one-step estimator at each sample size
+
+```{r}
+# round table to 2 digits and output to kable
+sim_results %>% group_by(method,n) %>% summarise(mean=mean(os_est),se=mean(os_se)) %>% 
+  knitr::kable(digits=4)
+```
+
+### Part c
+
+A couple observations:  
+
+1. Both estimators (e.g. GLM-based and SuperLearner-based) are centered around the true expected conditional covariance of 0.
+2. The GLM-only estimator concentrates a bit faster
 
 \clearpage
 
@@ -115,68 +306,102 @@ sim_main <- function(n,p,nsim) {
 
 ### Part 1
 
-**Credit due:** In working through this part, I got some ideas on how to handler trickier algebra steps from chapter 3 of *Mostly Harmless Econometrics*. First, we'll show how to arrive at the expression
+The majority of work here involves simplifying the conditional covariance term. We do this here. Notice
+
+$$
+\begin{aligned}
+\text{Cov}(A,Y|L) &= \mathbb{E}[(A-g(L))(Y-m(L))|L] \\
+&=
+\mathbb{E}[(A-g(L))Y|L] - \mathbb{E}[(A-g(L))m(L)|L] \\
+&= 
+\mathbb{E}[(A-g(L))Y|L] - m(L)\underbrace{\mathbb{E}[(A-g(L))|L]}_{=0} \\
+&=
+\mathbb{E}[(A-g(L))\underbrace{\mathbb{E}(Y|A,L)|L]}_{\text{via iterated exp.}} \\
+&= 
+\mathbb{E}(Y|A,L)\mathbb{E}[(A-g(L))|L]
+\end{aligned}
+$$
+Now, notice we can write
+
+$$
+\begin{aligned}
+\mathbb{E}(Y|A,L) &= \mathbb{E}(Y|A=0,L) + A(\mathbb{E}(Y|A=1,L) - \mathbb{E}(Y|A=0,L)) \\
+&= 
+\mathbb{E}(Y|A=0,L) + A\tau(L) 
+\end{aligned}
+$$
+where $\tau(L) := \mathbb{E}(Y|A=1,L) - \mathbb{E}(Y|A=0,L)$. Plugging this back in, we get
+
+$$
+\begin{aligned}
+\text{Cov}(A,Y|L) &= \underbrace{\mathbb{E}(Y|A=0,L)\mathbb{E}[(A-g(L))|L]}_{=0} + \mathbb{E}[A\tau(L)(A-g(L))|L] \\
+&=
+\tau(L) \mathbb{E}[A(A-g(L))|L] \\
+&=
+\tau(L) \mathbb{E}[A^2|L] - \tau(L) \mathbb{E}[Ag(L)|L] \\
+&=
+\tau(L) \mathbb{E}[A^2|L] - \tau(L) g(L)^2 \\
+&=
+\tau(L)\text{Var}(A|L)
+\end{aligned}
+$$
+Finally, under consistency and unconfoundedness notice we can write
+
+$$
+\tau(L) = \mathbb{E}(Y^1 - Y^0|L) = \mathbb{E}(Y|A=1,L) - \mathbb{E}(Y|A=0,L)
+$$
+
+so that
+
+$$
+\text{Cov}(A,Y|L) = \text{Var}(A|L) \mathbb{E}(Y^1 - Y^0|L)
+$$
+
+Step back and remember we want to show
 
 $$
 \frac{\mathbb{E}[\text{Cov}(A,Y | L)]}{\mathbb{E}[\text{Var}(A|L)]} = \mathbb{E}[w(L)(Y^1-Y^0)]
 $$
-The covariance-over-variance expression gives a hint that there's a connection between the variance weighted treatment effect and regression. Specifically, suppose we approximate the conditional expectation of $Y$ given $A$ and $L$ with a linear model containing no interactions: 
-
-$$
-\mathbb{E}(Y|L,A) = \alpha + \tau A + L\beta
-$$
-First, let $g(A|L) = A - \text{Proj}(A|L)$ where $\text{Proj}(A|L)$ is just the linear projection of $A$ onto $L$, so that $g(A|L)$ can just be thought of as the residuals from the linear regression of $A$ on $L$. Recall the Frisch-Waugh-Lovell theorem states that we can write $\tau$ as
-
-$$
-\tau = \frac{\text{Cov}[A-g(A|L),Y]}{\text{Var}[A-g(A|L)]}
-$$
-By construction, notice $\mathbb{E}(A-g(A|L))=0$ (linear regression residuals are mean zero) so that 
+Plugging in the expression we just derived for the numerator, notice we have 
 
 $$
 \begin{aligned}
-\tau &= \frac{\text{Cov}[A-g(A|L),Y]}{\text{Var}[A-g(A|L)]} \\
-&= \frac{\mathbb{E}\{[A-g(A|L)]Y\}}{\text{Var}[A|L]} \\
-&= \frac{\mathbb{E}\{[A-g(A|L)]\mathbb{E}(Y|L,A)\}}{\text{Var}[A|L]} 
-\end{aligned}
-$$
-The third equality here is the key one. This line **also** holds to the Frisch-Waugh-Lovell theorem, which heuristically says that ----
-
-To proceed, notice that we can write
-
-$$
-\begin{aligned}
-\mathbb{E}[Y|A,L] = \mathbb{E}(Y|A=0,L) + A\{\underbrace{\mathbb{E}(Y|A=1,L) - \mathbb{E}(Y|A=0,L)}_{:= \tau_L}\}
-\end{aligned}
-$$
-where above I've let $\tau_L$ denote the conditional average treatment effect. Subbing this in above, we have that
-
-$$
-\begin{aligned}
-\tau &= \frac{\mathbb{E}\{[A-g(A|L)]\cdot [\mathbb{E}(Y|A=0,L) + A\tau_L]\}}{\text{Var}[A|L]} 
-\end{aligned}
-$$
-Above, notice 
-
-$$
-\mathbb{E}\{[A-g(A|L)]\cdot [\mathbb{E}(Y|A=0,L)]\} = 0,
-$$
-because $\mathbb{E}[L(A-g(A|L))]=0$ and $\mathbb{E}(Y|A=0,L)$ is a function of $L$ only. This leaves us with
-
-$$
-\begin{aligned}
-\tau &= \frac{\mathbb{E}\{[A-g(A|L)]\cdot A\tau_L\}}{\text{Var}[A|L]} \\
-&= \frac{\mathbb{E}\{\text{Var}(A|L)\tau_L\}}{\text{Var}[A|L]} \\
+\frac{\mathbb{E}[\text{Cov}(A,Y | L)]}{\mathbb{E}[\text{Var}(A|L)]} &= \frac{\mathbb{E}[\text{Var}(A|L) \mathbb{E}(Y^1 - Y^0|L)]}{\mathbb{E}[\text{Var}(A|L)]} \\
 &=
- \frac{\mathbb{E}\{\text{Var}(A|L)\cdot [\mathbb{E}(Y|A=1,L) - \mathbb{E}(Y|A=0,L)]\}}{\text{Var}[A|L]} \\
- &= 
-  \frac{\mathbb{E}\{\text{Var}(A|L)\cdot [\mathbb{E}(Y^1-Y^0|L) ]\}}{\text{Var}[A|L]} 
+\mathbb{E}\left(\frac{\text{Var}(A|L)}{\mathbb{E}[\text{Var}(A|L)]} \mathbb{E}(Y^1 - Y^0|L)]\right) \\
+&= 
+\mathbb{E}\left(w(L) \mathbb{E}(Y^1 - Y^0|L)]\right)
 \end{aligned}
 $$
-On the second line, I use the fact that --. On the third line I substitute in the definition of $\tau_L$, while on the fourth line we make use of consistency. 
+And we're (finally) done.
+
+<!-- **Connection to regression**: -->
+
+<!-- The covariance-over-variance expression gives a hint that there's a connection between the variance weighted treatment effect and regression-based estimators. Specifically, suppose we approximate the conditional expectation of $Y$ given $A$ and $L$ with a partially linear model containing no interactions: -->
+
+<!-- $$ -->
+<!-- \mathbb{E}(Y|L,A) = \alpha + \tau A + g(L) -->
+<!-- $$ -->
+
+<!-- Recall the Frisch-Waugh-Lovell theorem states that we can write $\tau$ as -->
+
+<!-- $$ -->
+<!-- \tau = \frac{\text{Cov}[A-g(L),Y]}{\text{Var}[A-g(A|L)]} -->
+<!-- $$ -->
+
+<!-- By construction, notice $\mathbb{E}(A-g(A|L))=0$ (linear regression residuals are mean zero) so that -->
+
+<!-- $$ -->
+<!-- \begin{aligned} -->
+<!-- \tau &= \frac{\text{Cov}[A-g(A|L),Y]}{\text{Var}[A-g(A|L)]} \\ -->
+<!-- &= \frac{\mathbb{E}\{[A-g(A|L)]Y\}}{\text{Var}[A|L]} \\ -->
+<!-- &= \frac{\mathbb{E}\{[A-g(A|L)]\mathbb{E}(Y|L,A)\}}{\text{Var}[A|L]}  -->
+<!-- \end{aligned} -->
+<!-- $$  -->
 
 ### Part 2
 
-First, notice using "EIF-calculus" and letting the EIF() return the EIF for a statistical estimand, we have that
+First, notice using "EIF-calculus" and letting the EIF() operator return the EIF for a statistical estimand, we have that
 
 $$
 \begin{aligned}
@@ -187,15 +412,267 @@ $$
 \text{EIF}\left(\mathbb{E}[\text{Cov}(A,Y | L)]\right)\mathbb{E}[\text{Var}(A|L)]^{-1} \\
 &- \left(\frac{1}{\mathbb{E}[\text{Var}(A|L)]}\right)^2\text{EIF}(\mathbb{E}[\text{Var}(A|L)]) \mathbb{E}[\text{Cov}(A,Y | L)] \\
 \\ 
-&= \text{EIF}\left(\mathbb{E}[\text{Cov}(A,Y | L)]\right)\mathbb{E}[\text{Var}(A|L)]^{-1} \\
-&- \left(\frac{1}{\mathbb{E}[\text{Var}(A|L)]}\right)^2\text{EIF}(\mathbb{E}[\text{Cov}(A,A|L)]) \mathbb{E}[\text{Cov}(A,Y | L)]
+&= \underbrace{\text{EIF}\left(\mathbb{E}[\text{Cov}(A,Y | L)]\right)}_\text{we know this}\mathbb{E}[\text{Var}(A|L)]^{-1} \\
+&- \left(\frac{1}{\mathbb{E}[\text{Var}(A|L)]}\right)^2\underbrace{\text{EIF}(\mathbb{E}[\text{Cov}(A,A|L)])}_\text{we know this} \mathbb{E}[\text{Cov}(A,Y | L)]
 \end{aligned}
 $$
-While messy, notice this expression is entirely in terms of quantities we can calculate since we derived the EIF of the expected conditional covariance previously. We can plug in for the known EIF expression:
+
+While messy, notice this expression is **entirely** in terms of quantities we can calculate since we derived the EIF of the expected conditional covariance previously. We can plug in for the known EIF expression:
+
+$$
+\scriptsize
+\begin{aligned}
+\text{EIF}\left(\frac{\mathbb{E}[\text{Cov}(A,Y | L)]}{\mathbb{E}[\text{Var}(A|L)]} \right) &= \{[Y-m(L)][A-g(L)] - \psi_{AY}\}\mathbb{E}[\text{Var}(A|L)]^{-1} \\
+&- \left(\frac{1}{\mathbb{E}[\text{Var}(A|L)]}\right)^2\{[A-g(L)]^2 - \psi_A\}\mathbb{E}[\text{Cov}(A,Y | L)] \\
+&= \frac{[Y-m(L)][A-g(L)] - \mathbb{E}[\text{Cov}(A,Y|L)]}{\mathbb{E}[\text{Var}(A|L)]} - \frac{\{[A-g(L)]^2 - \mathbb{E}[\text{Var}(A|L)]\}\mathbb{E}[\text{Cov}(A,Y | L)]}{(\mathbb{E}[\text{Var}(A|L)])^2} \\
+&=
+\frac{[Y-m(L)][A-g(L)] - \mathbb{E}[\text{Cov}(A,Y|L)]}{\mathbb{E}[\text{Var}(A|L)]} - \psi\frac{\{[A-g(L)]^2 - \mathbb{E}[\text{Var}(A|L)]\}}{\mathbb{E}[\text{Var}(A|L)]} \\
+&=
+\frac{[Y-m(L)][A-g(L)]}{\mathbb{E}[\text{Var}(A|L)]} - \psi - \psi\frac{\{[A-g(L)]^2 - \mathbb{E}[\text{Var}(A|L)]\}}{\mathbb{E}[\text{Var}(A|L)]} \\
+&= 
+\frac{[Y-m(L)][A-g(L)]}{\mathbb{E}[\text{Var}(A|L)]} - \psi - \psi\frac{[A-g(L)]^2}{\mathbb{E}[\text{Var}(A|L)]} + \psi \\
+&= \frac{[Y-m(L)][A-g(L)]}{\mathbb{E}[\text{Var}(A|L)]} - \psi\frac{[A-g(L)]^2}{\mathbb{E}[\text{Var}(A|L)]} \\
+\end{aligned}
+$$
+
+### Part 3
+
+In this part, we'll derive the one-step estimator. Recall that
+
+$$
+\text{EIF}\left(\frac{\mathbb{E}[\text{Cov}(A,Y | L)]}{\mathbb{E}[\text{Var}(A|L)]} \right) = \frac{[Y-m(L)][A-g(L)]}{\mathbb{E}[\text{Var}(A|L)]} - \psi\frac{[A-g(L)]^2}{\mathbb{E}[\text{Var}(A|L)]}
+$$
+And note that the empirical version of $\mathbb{E}[\text{Var}(A|L)]$ is 
+$$
+\frac{1}{n}\sum_{i=1}^n [A_i - \hat g(L_i)]^2
+$$
+
+Thus, the corresponding one-step estimator takes the form
 
 $$
 \begin{aligned}
-\text{EIF}\left(\frac{\mathbb{E}[\text{Cov}(A,Y | L)]}{\mathbb{E}[\text{Var}(A|L)]} \right) &= \{[Y-m(L)][A-g(L)] - \psi_{AY}\}\mathbb{E}[\text{Var}(A|L)]^{-1} \\
-&- \left(\frac{1}{\mathbb{E}[\text{Var}(A|L)]}\right)^2\{[A-g(L)]^2 - \psi_A\}\mathbb{E}[\text{Cov}(A,Y | L)]
+\hat \psi_n^\text{OS} &= \hat \psi_n^\text{PI} + \frac{1}{n}\sum_{i=1}^n \left\{ \frac{[Y_i-\hat m(L_i)][A_i- \hat g(L_i)]}{\widehat{\mathbb{E}[\text{Var}(A|L)]}} - \hat{\psi}_n^\text{PI}\frac{[A_i-\hat g(L_i)]^2}{\widehat{\mathbb{E}[\text{Var}(A|L)]} } \right\} \\
+&=
+\hat \psi_n^\text{PI} + \frac{1}{n}\sum_{i=1}^n \left\{ \frac{[Y_i-\hat m(L_i)][A_i- \hat g(L_i)]}{\frac{1}{n}\sum_{i=1}^n [A_i - \hat g(L_i)]^2} - \hat{\psi}_n^\text{PI}\frac{[A_i-\hat g(L_i)]^2}{\frac{1}{n}\sum_{i=1}^n [A_i - \hat g(L_i)]^2} \right\} \\
+&=
+\hat \psi_n^\text{PI} + \frac{1}{n}\sum_{i=1}^n \left\{ \frac{[Y_i-\hat m(L_i)][A_i- \hat g(L_i)]}{\frac{1}{n}\sum_{i=1}^n [A_i - \hat g(L_i)]^2}\right\} - \hat{\psi}_n^\text{PI}\underbrace{\frac{1}{n}\sum_{i=1}^n \left\{\frac{[A_i-\hat g(L_i)]^2}{\frac{1}{n}\sum_{i=1}^n [A_i - \hat g(L_i)]^2} \right\}}_{=1} \\
+&=
+\hat \psi_n^\text{PI} + \frac{1}{n}\sum_{i=1}^n \left\{ \frac{[Y_i-\hat m(L_i)][A_i- \hat g(L_i)]}{\frac{1}{n}\sum_{i=1}^n [A_i - \hat g(L_i)]^2}\right\} - \hat{\psi}_n^\text{PI} \\
+&= 
+\frac{1}{n}\sum_{i=1}^n \left\{ \frac{[Y_i-\hat m(L_i)][A_i- \hat g(L_i)]}{\frac{1}{n}\sum_{i=1}^n [A_i - \hat g(L_i)]^2}\right\} 
+\end{aligned}
+$$ 
+
+\clearpage
+
+# Problem 5: Variance-Weighted Treatment Effect in the NHEFS Dataset
+
+### Quick aside: obtaining an expression for the plug-in
+
+We need to find derive the plug-in estimator as well. Recall our target functional is 
+
+$$
+\psi = \frac{\mathbb{E}(\text{Cov}(A,Y|L))}{\mathbb{E}[\text{Var}(A|L)]}
+$$
+We already know how to "plug-in" for the numerator, but the denominator is less clear off the bat. First, notice that
+
+$$
+\begin{aligned}
+\text{Var}(A|L) &= \mathbb{E}(A^2|L) - \mathbb{E}(A|L)^2 \\
+&=
+ \mathbb{E}(A|L) - \mathbb{E}(A|L)^2 \\
+ \implies \mathbb{E}[\text{Var}(A|L)] &= \mathbb{E}[\mathbb{E}(A|L) - \mathbb{E}(A|L)^2] \\
+ &= \mathbb{E}(A) - \mathbb{E}(\mathbb{E}(A|L)^2) \\
 \end{aligned}
 $$
+Also notice
+
+$$
+\begin{aligned}
+A(A-\mathbb{E}(A|L)) &= A^2 - A\mathbb{E}(A|L) \\
+\implies 
+\mathbb{E}[A(A-\mathbb{E}(A|L))] &= \mathbb{E}[A^2] - \mathbb{E}[A\mathbb{E}(A|L)] \\
+&= \mathbb{E}(A) - \mathbb{E}\{\mathbb{E}[A\mathbb{E}(A|L) | L] \} \\
+&= \mathbb{E}(A) - \mathbb{E}\{\mathbb{E}[A|L]\mathbb{E}[A|L] \} \\
+&= \mathbb{E}(A) - \mathbb{E}[ \mathbb{E}(A|L)^2 ] \\
+&= \mathbb{E}[\text{Var}(A|L)] \\
+\implies
+\mathbb{E}[\text{Var}(A|L)] &= \mathbb{E}[A(A-\mathbb{E}(A|L))] \\
+\end{aligned}
+$$
+This all implies that a plug-in estimator for $\psi$ is
+
+$$
+\hat \psi_n^\text{PI} = \frac{\frac{1}{n}\sum_{i=1}^n [Y_i - \hat m(L_i)][A_i - \hat g(L_i)]}{\frac{1}{n}\sum_{i=1}^n [A_i(A_i - \hat g(L_i))]}
+$$
+
+### Part 1: estimating the VWTE
+
+First, I load in the NHEFS data
+
+```{r}
+# Load in the data
+nhefs <- read.csv('../data/nhefs.csv') %>%
+  filter(!is.na(wt82_71))
+
+# Get set of covariates for treatment + outcome regressions
+covs <- c('sex','age','race','education','smokeyrs','smokeintensity',
+          'active','exercise','wt71') 
+
+# Set outcome and treatment
+outcome <- 'wt82_71' ; treatment <- 'qsmk'
+```
+
+To estimate the VWTE, we can employ the one-step estimator derived above where we $g$ and $m$ via super learners, specifying a mix of parametric and non-parametric models for the underlying libraries. First, I write functions to estimate the nuisance models:
+
+```{r}
+est_m <- function(Y,A,L,
+                  sl.lib) {
+  
+  m_hat <- SuperLearner(Y = Y, X = L, SL.library = sl.lib)
+  return(m_hat$SL.predict)
+  
+}
+
+est_g <- function(A,L,
+                  sl.lib) {
+
+  g_hat <- SuperLearner(Y = A, X = L, SL.library = sl.lib, family = binomial())
+  return(g_hat$SL.predict)
+  
+}
+```
+
+Next, I write a function to estimate the VWTE:
+
+```{r}
+vwte_one_step <- function(Y,A,L,
+                          sl.lib) {
+  # Estimate m and g
+  m_hat <- est_m(Y,A,L,sl.lib)
+  g_hat <- est_g(A,L,sl.lib)
+  
+  # Estimate the VWTE
+  vwte_est <- mean( (Y-m_hat)*(A-g_hat)/(mean((A-g_hat)^2)) )
+  
+  vwte_se <- sqrt(var((Y-m_hat)*(A-g_hat)/(mean((A-g_hat)^2)))/length(Y))
+  
+  
+  
+  return(list(
+    est=vwte_est,
+    se=vwte_se
+  ))
+  
+}
+
+vwte_plug_in <- function(Y,A,L,
+                         sl.lib) {
+ 
+   # Estimate m and g
+  m_hat <- est_m(Y,A,L,sl.lib)
+  g_hat <- est_g(A,L,sl.lib)
+  
+  # Estimate the VWTE
+  vwte_est <- mean( (Y-m_hat)*(A-g_hat)/mean( A*(A-g_hat) ) )
+  vwte_se <- sqrt( var((Y-m_hat)*(A-g_hat)/mean( A*(A-g_hat) ))/length(Y)   )
+  
+  return(list(
+    est=vwte_est,
+    se=vwte_se
+  ))
+   
+}
+```
+
+Finally, I estimate the VWTE. I use a mix of parametric (GLMs and GLMs with interactions) and nonparametric (random forest, implemented via the `SL.ranger` library) libraries in estimating the nuisance models. This way, we are able to be agnostic about the true DGP. If they are well-approximated by a parametric model, the super learner should pick this up, while if not then (hopefully) the more flexible random forest model will be able to capture the true conditional mean functions.
+
+```{r}
+# Estimate the VWTE
+Y <- nhefs[[outcome]] ; A <- nhefs[[treatment]] 
+L <- subset(nhefs, select = covs)
+
+# Specify the libraries for the super learner
+sl.lib <- c('SL.mean','SL.glm','SL.glm.interaction','SL.ranger')
+
+# Estimate the VWTE
+vwte_est_os <- vwte_one_step(Y,A,L,sl.lib)
+vwte_est_pi <- vwte_plug_in(Y,A,L,sl.lib)
+
+# Output results with kable -- turn into a df
+vwte_df <- rbind(data.frame(
+  Estimate = vwte_est_os$est,
+  SE = vwte_est_os$se,
+  Method='One-step'
+),
+data.frame(
+  Estimate = vwte_est_pi$est,
+  SE = vwte_est_pi$se,
+  Method='Plug-in'
+))
+
+vwte_df %>% select(-SE) %>% knitr::kable(digits=3)
+```
+
+### Part 2: standard error
+
+Recall that the one-step estimator is asymptotically linear:
+
+$$
+\sqrt n(\hat \psi_n^\text{OS} - \psi) \overset{d}{\to} N(0, \Sigma)
+$$
+
+where $\Sigma = \text{Var}\left(\frac{[Y-m(L)][A-g(L)]}{\mathbb{E}[\text{Var}(A|L)]} - \psi\frac{[A-g(L)]^2}{\mathbb{E}[\text{Var}(A|L)]}\right)$. We can consistently estimate $\Sigma$ via the empirical variance of $\hat \psi_n^\text{OS}$. There's actually no need to directly estimate the variance by using the expression for the (empirical) EIF itself, because as we showed the empirical EIF and one-step end up only differing by a constant (the plug-in). That means that the empirical variance of the one-step estimator will be algebraically equivalent to the empirical variance of the EIF in this example.
+
+We actually estimated the variance in the earlier function call, so I re-report the SE here:
+
+```{r}
+vwte_df %>% filter(Method=='One-step') %>% knitr::kable(digits=3)
+```
+
+We can also obtain an estimate via the bootstrap. I implement functions for this below:
+
+```{r}
+
+os_point_est <- function(Y,A,L,
+                          sl.lib) {
+  return(vwte_one_step(Y,A,L,sl.lib)$est)
+}
+
+
+os_boot <- function(Y,A,L,sl.lib,
+                   nboot=1000) {
+ 
+  
+  # We don't have all day
+  registerDoParallel(cores=detectCores()-2)
+  
+  # Draw nsim bootstrap samples, get point est for each
+  boot_res <- foreach(i=1:nboot, .combine=rbind) %dopar% {
+    boot_idx <- sample(1:length(Y),replace=TRUE)
+    boot_Y <- Y[boot_idx] ; boot_A <- A[boot_idx] ; boot_L <- L[boot_idx,]
+    
+    return(os_point_est(boot_Y,boot_A,boot_L,sl.lib))
+  }
+  
+  stopImplicitCluster()
+  
+  # Get empirical SD of bootstrapped ests
+  boot_se <- sd(boot_res)
+  
+  return(boot_se)
+
+}
+```
+
+I perform those bootstrap below:
+
+```{r,cache=TRUE}
+# Bootstrap
+set.seed(123)
+vwte_boot_se <- os_boot(Y,A,L,sl.lib,nboot=100)
+
+print(vwte_boot_se)
+```
+
+The bootstrap SE is notably higher than the analytic one, which makes sense as the analytic SE ignores model uncertainty.
