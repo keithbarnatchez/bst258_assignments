@@ -19,7 +19,7 @@ $$
 \Psi_\text{P}(O) := \text{Cov}_\text{P}(A,Y) 
 $$
 
-Since the model is fully n0n-parametric, we can use the point mass contamination strategy discussed in (cite hines here).
+Since the model is fully non-parametric, we can use the point mass contamination strategy discussed in (cite hines here).
 
 As shown in Hines, for functionals of the form $\mathbb{E}_\text{P}[g(O,\text{P})]$, i.e. functions that can be written as the exectation of sum function of the data under a specified distribution living in $\mathcal{M}$, we can write the EIC as 
 
@@ -182,7 +182,7 @@ $$
 & L \sim N(0,1) \\ & A|L \sim \text{Bernouli}(\text{expit}(L)) \\ & Y|(A,L) \sim N(\mu=L,\sigma^2=1) 
 \end{aligned}
 $$
-Notice $Y$ is independent at $A$ given $L$, so that for any $l$ the true conditional covariance is 0 and in turn the expected conditional covariance is 0.
+Notice $Y$ is independent of $A$ given $L$, so that for any $L=l$ the true conditional covariance is 0 and in turn the expected conditional covariance is 0. 
 
 My code for implementing the one-step estimator, and evaluating it through simulation, is below.
 
@@ -297,8 +297,8 @@ sim_results %>% group_by(method,n) %>% summarise(mean=mean(os_est),se=mean(os_se
 
 A couple observations:  
 
-1. Both estimators (e.g. GLM-based and SuperLearner-based) are centered around the true expected conditional covariance of 0.
-2. The GLM-only estimator concentrates a bit faster
+1. Both estimators (e.g. GLM-based and RF-based) are centered around the true expected conditional covariance of 0.
+2. Surprisingly, the RF estimator concentrates faster (I triple checked the labels weren't flipped!). This is a bit counter-intuitive. One reason that we may at least expect RF to not be *slower* is that the expected conditional covariance functional is doubly-robust (i.e. the one-step estimator of this quantity will have an error that is the product of errors between the two nuisance models).
 
 \clearpage
 
